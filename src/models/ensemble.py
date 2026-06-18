@@ -215,8 +215,9 @@ class EnsemblePredictor:
                 return "away"
             return "draw"
 
-        consistent = [s for s in top_scores if _score_outcome(str(s["score"])) == predicted_winner]
-        most_likely_score = (consistent[0] if consistent else top_scores[0])["score"] if top_scores else "1-1"
+        all_scores = self.dc_model.predict_top_scores(home_team, away_team, top_n=100)
+        matching = [s for s in all_scores if _score_outcome(str(s["score"])) == predicted_winner]
+        most_likely_score = matching[0]["score"] if matching else "1-1"
 
         return PredictionResult(
             home_team=home_team,
