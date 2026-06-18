@@ -111,14 +111,45 @@ def load_historical_matches(
     return combined.reset_index(drop=True)
 
 
-def load_elo_ratings() -> dict[str, float]:
-    """Load ELO ratings for national teams from the historical CSV.
+def load_elo_ratings(as_of_tournament: str | None = None) -> dict[str, float]:
+    """Compute ELO ratings dynamically from all historical match results.
+
+    Processes WC matches chronologically (oldest first) using the World
+    Football ELO algorithm with goal-difference weighting and separate
+    K-factors for group (40) vs knockout (60) stages.
+
+    The CSV fallback (`elo_ratings.csv`) is only used for teams that never
+    appeared in any WC match — it acts as a prior, not a source of truth.
+
+    Args:
+        as_of_tournament: If set (e.g. "WC2026"), exclude that tournament's
+            matches from the computation. Useful for backtesting to avoid
+            data leakage.
 
     Returns:
-        Dictionary mapping team name to ELO score.
+        Dictionary mapping team name to computed ELO rating.
     """
+    from src.data.elo import compute_elo_from_matches, load_elo_from_csv
+
+    # Load CSV as seed/fallback for teams not in any WC match
     elo_path = _HISTORICAL_DIR / "elo_ratings.csv"
-    return load_elo_from_csv(str(elo_path))
+    try:
+        seed = load_elo_from_csv(str(elo_path))
+    except Exception:
+        seed = {}
+
+    # Load all match history and exclude the target tournament if requested
+    df = load_historical_matches()
+    if as_of_tournament:
+        df = df[~df["tournament"].str.contains(as_of_tournament, na=False)]
+
+    if df.empty:
+        return seed
+
+    computed = compute_elo_from_matches(df, seed=seed)
+
+    # Merge: computed ratings take precedence; CSV fills in the rest
+    return {**seed, **computed}
 
 
 def fetch_recent_form(team: str, n_matches: int = 5) -> pd.DataFrame:

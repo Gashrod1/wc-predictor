@@ -123,7 +123,8 @@ def cmd_backtest(args: argparse.Namespace) -> None:
         console.print(f"[red]No data found for tournament: {tournament}[/red]")
         sys.exit(1)
 
-    elo = load_elo_ratings()
+    # ELO computed from matches BEFORE the target tournament (no leakage)
+    elo = load_elo_ratings(as_of_tournament=tournament)
 
     # Train on data excluding the target tournament
     train_df = all_df[~all_df["tournament"].str.contains(tournament, na=False)]

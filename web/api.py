@@ -217,7 +217,8 @@ def get_backtest(tournament: str) -> BacktestMetrics:
     if target_df.empty:
         raise HTTPException(status_code=404, detail=f"Unknown tournament: {tournament}")
 
-    elo: dict[str, float] = _state["elo"]  # type: ignore[assignment]
+    # ELO computed only from matches before this tournament (no leakage)
+    elo = load_elo_ratings(as_of_tournament=tournament)
     train_df = all_df[~all_df["tournament"].str.contains(tournament, na=False)]
     if train_df.empty:
         train_df = all_df
@@ -262,7 +263,7 @@ def get_backtest_details(tournament: str) -> BacktestDetails:
     if target_df.empty:
         raise HTTPException(status_code=404, detail=f"Unknown tournament: {tournament}")
 
-    elo: dict[str, float] = _state["elo"]  # type: ignore[assignment]
+    elo = load_elo_ratings(as_of_tournament=tournament)
     train_df = all_df[~all_df["tournament"].str.contains(tournament, na=False)]
     if train_df.empty:
         train_df = all_df
