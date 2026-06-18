@@ -1,0 +1,88 @@
+"""High-level prediction interface that loads trained models automatically."""
+from __future__ import annotations
+
+from pathlib import Path
+
+import joblib
+
+from src.data.loader import load_historical_matches, load_elo_ratings
+from src.models.dixon_coles import DixonColesModel
+from src.models.ensemble import EnsemblePredictor, PredictionResult
+from src.models.xgboost_classifier import XGBoostOutcomeClassifier
+
+_SAVED_DIR = Path(__file__).parent.parent.parent / "models" / "saved"
+
+
+def load_or_train_predictor() -> EnsemblePredictor:
+    """Load a saved ensemble predictor, or train one from scratch if not found.
+
+    Returns:
+        Ready-to-use EnsemblePredictor.
+    """
+    dc_path = _SAVED_DIR / "dixon_coles.joblib"
+    xgb_path = _SAVED_DIR / "xgboost.joblib"
+
+    if dc_path.exists() and xgb_path.exists():
+        dc_model: DixonColesModel = joblib.load(dc_path)
+        xgb_model: XGBoostOutcomeClassifier = joblib.load(xgb_path)
+    else:
+        dc_model, xgb_model = _train_models()
+
+    return EnsemblePredictor(dc_model=dc_model, xgb_model=xgb_model)
+
+
+def predict_match(
+    home_team: str,
+    away_team: str,
+    stage: str = "group",
+) -> PredictionResult:
+    """Predict a single match outcome using the ensemble.
+
+    Args:
+        home_team: Home team name.
+        away_team: Away team name.
+        stage: Match stage (e.g. 'group', 'semi_final', 'final').
+
+    Returns:
+        PredictionResult with all prediction details.
+    """
+    predictor = load_or_train_predictor()
+    return predictor.predict(home_team, away_team, context={"stage": stage})
+
+
+def _train_models() -> tuple[DixonColesModel, XGBoostOutcomeClassifier]:
+    """Train both models from historical data and save them."""
+    import pandas as pd
+    from src.data.features import build_match_features
+
+    df = load_historical_matches()
+    elo = load_elo_ratings()
+
+    dc_model = DixonColesModel()
+    dc_model.fit(df)
+
+    feature_rows = []
+    labels = []
+    for _, row in df.iterrows():
+        feats = build_match_features(
+            row["home_team"], row["away_team"], elo, df, stage=row["stage"]
+        )
+        feature_rows.append(feats)
+        if row["home_goals"] > row["away_goals"]:
+            labels.append(2)
+        elif row["home_goals"] == row["away_goals"]:
+            labels.append(1)
+        else:
+            labels.append(0)
+
+    X = pd.DataFrame(feature_rows)
+    y = pd.Series(labels)
+
+    xgb_model = XGBoostOutcomeClassifier()
+    xgb_model.fit(X, y)
+
+    _SAVED_DIR.mkdir(parents=True, exist_ok=True)
+    joblib.dump(dc_model, _SAVED_DIR / "dixon_coles.joblib")
+    joblib.dump(xgb_model, _SAVED_DIR / "xgboost.joblib")
+
+    return dc_model, xgb_model
