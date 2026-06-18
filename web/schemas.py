@@ -74,7 +74,7 @@ class H2HResponse(BaseModel):
 
 
 class FixtureItem(BaseModel):
-    """A single fixture (no result)."""
+    """A single fixture with optional result and prediction for played matches."""
 
     date: str
     time: str
@@ -85,6 +85,10 @@ class FixtureItem(BaseModel):
     stadium: str
     stage: str
     predictable: bool
+    status: str  # "Joué", "À jouer", "En direct"
+    actual_score: str  # e.g. "2-0" or "" if not played
+    predicted_score: str  # e.g. "1-0" or "" if not played
+    outcome_correct: bool | None  # None if not played
 
 
 class BacktestMetrics(BaseModel):
@@ -95,3 +99,24 @@ class BacktestMetrics(BaseModel):
     top3_score_accuracy: float
     brier_score: float
     log_loss: float
+
+
+class BacktestMatchDetail(BaseModel):
+    """Prediction vs actual for a single match."""
+
+    date: str
+    home_team: str
+    away_team: str
+    predicted_score: str
+    actual_score: str
+    predicted_winner: str
+    actual_winner: str
+    outcome_correct: bool
+    score_correct: bool
+
+
+class BacktestDetails(BaseModel):
+    """Response for GET /api/backtest/{tournament}/details."""
+
+    tournament: str
+    matches: list[BacktestMatchDetail]

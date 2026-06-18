@@ -61,6 +61,12 @@ class EnsemblePredictor:
             weight model has been fitted.
         xgb_weight: Weight for XGBoost (default 0.45), used when no
             weight model has been fitted.
+        squad_loader: Optional SquadLoader instance for squad-based features.
+        chemistry_analyzer: Optional ChemistryAnalyzer instance.
+        historical_df: Historical match data for feature engineering. If None,
+            loads all available data via load_historical_matches(). Pass a
+            filtered DataFrame (e.g. excluding the target tournament) to avoid
+            data leakage during backtesting.
     """
 
     def __init__(
@@ -71,13 +77,14 @@ class EnsemblePredictor:
         xgb_weight: float = _XGB_WEIGHT,
         squad_loader: Any = None,
         chemistry_analyzer: Any = None,
+        historical_df: pd.DataFrame | None = None,
     ) -> None:
         self.dc_model = dc_model
         self.xgb_model = xgb_model
         self.dc_weight = dc_weight
         self.xgb_weight = xgb_weight
         self._elo_ratings = load_elo_ratings()
-        self._historical_df = load_historical_matches()
+        self._historical_df = historical_df if historical_df is not None else load_historical_matches()
         self._weight_model: Any = None  # set by fit_weights()
         self._squad_loader: Any = squad_loader
         self._chemistry_analyzer: Any = chemistry_analyzer
@@ -199,7 +206,17 @@ class EnsemblePredictor:
         raw_confidence = float(1.0 - entropy / max_entropy)
         confidence = float(np.clip(raw_confidence * (1.0 - 0.3 * model_divergence), 0.1, 0.95))
 
-        most_likely_score = top_scores[0]["score"] if top_scores else "1-1"
+        # Pick the most likely score whose implied outcome matches predicted_winner
+        def _score_outcome(s: str) -> str:
+            h, a = s.split("-")
+            if int(h) > int(a):
+                return "home"
+            if int(h) < int(a):
+                return "away"
+            return "draw"
+
+        consistent = [s for s in top_scores if _score_outcome(str(s["score"])) == predicted_winner]
+        most_likely_score = (consistent[0] if consistent else top_scores[0])["score"] if top_scores else "1-1"
 
         return PredictionResult(
             home_team=home_team,

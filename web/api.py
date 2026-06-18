@@ -14,13 +14,15 @@ from src.data.loader import (
     load_historical_matches,
     resolve_team_name,
 )
-from src.evaluation.backtesting import run_backtest
+from src.evaluation.backtesting import run_backtest, run_backtest_details
 from src.models.dixon_coles import DixonColesModel
 from src.models.xgboost_classifier import XGBoostOutcomeClassifier
 from src.models.ensemble import EnsemblePredictor
 from src.prediction.predictor import load_or_train_predictor
 from web.fixtures import load_fixtures
 from web.schemas import (
+    BacktestDetails,
+    BacktestMatchDetail,
     BacktestMetrics,
     FixtureItem,
     H2HResponse,
@@ -178,8 +180,29 @@ def get_h2h(home: str, away: str) -> H2HResponse:
 
 @app.get("/api/fixtures", response_model=list[FixtureItem])
 def get_fixtures() -> list[FixtureItem]:
-    """Return the WC2026 fixtures (without actual results)."""
-    return [FixtureItem(**f) for f in load_fixtures()]
+    """Return the WC2026 fixtures with prediction and result for played matches."""
+    predictor: EnsemblePredictor = _state["predictor"]  # type: ignore[assignment]
+    result = []
+    for f in load_fixtures():
+        if f["status"] == "Joué" and f["predictable"] and f["actual_score"]:
+            try:
+                home = resolve_team_name(f["home_team"])
+                away = resolve_team_name(f["away_team"])
+                pred = predictor.predict(home, away, context={"stage": f["stage"]})
+                f["predicted_score"] = pred.most_likely_score
+                parts = str(f["actual_score"]).split("-")
+                hg, ag = int(parts[0]), int(parts[1])
+                if hg > ag:
+                    actual_winner = "home"
+                elif hg < ag:
+                    actual_winner = "away"
+                else:
+                    actual_winner = "draw"
+                f["outcome_correct"] = pred.predicted_winner == actual_winner
+            except Exception:
+                pass
+        result.append(FixtureItem(**f))
+    return result
 
 
 @app.get("/api/backtest/{tournament}", response_model=BacktestMetrics)
@@ -218,9 +241,57 @@ def get_backtest(tournament: str) -> BacktestMetrics:
     xgb_model = XGBoostOutcomeClassifier()
     xgb_model.fit(pd.DataFrame(rows), pd.Series(labels))
 
-    ensemble = EnsemblePredictor(dc_model=dc_model, xgb_model=xgb_model)
+    ensemble = EnsemblePredictor(dc_model=dc_model, xgb_model=xgb_model, historical_df=train_df)
     metrics = run_backtest(ensemble, target_df)
 
     result = BacktestMetrics(**metrics)
     cache[tournament] = result
     return result
+
+
+@app.get("/api/backtest/{tournament}/details", response_model=BacktestDetails)
+def get_backtest_details(tournament: str) -> BacktestDetails:
+    """Compute (and cache) per-match backtest detail for a tournament."""
+    cache: dict[str, object] = _state["backtest_cache"]  # type: ignore[assignment]
+    details_key = f"{tournament}:details"
+    if details_key in cache:
+        return cache[details_key]  # type: ignore[return-value]
+
+    all_df: pd.DataFrame = _state["history"]  # type: ignore[assignment]
+    target_df = all_df[all_df["tournament"].str.contains(tournament, na=False)]
+    if target_df.empty:
+        raise HTTPException(status_code=404, detail=f"Unknown tournament: {tournament}")
+
+    elo: dict[str, float] = _state["elo"]  # type: ignore[assignment]
+    train_df = all_df[~all_df["tournament"].str.contains(tournament, na=False)]
+    if train_df.empty:
+        train_df = all_df
+
+    dc_model = DixonColesModel()
+    dc_model.fit(train_df)
+
+    rows: list[dict[str, float]] = []
+    labels: list[int] = []
+    for _, row in train_df.iterrows():
+        rows.append(
+            build_match_features(row["home_team"], row["away_team"], elo, train_df, stage=row["stage"])
+        )
+        if row["home_goals"] > row["away_goals"]:
+            labels.append(2)
+        elif row["home_goals"] == row["away_goals"]:
+            labels.append(1)
+        else:
+            labels.append(0)
+
+    xgb_model = XGBoostOutcomeClassifier()
+    xgb_model.fit(pd.DataFrame(rows), pd.Series(labels))
+
+    ensemble = EnsemblePredictor(dc_model=dc_model, xgb_model=xgb_model, historical_df=train_df)
+    match_rows = run_backtest_details(ensemble, target_df)
+
+    details = BacktestDetails(
+        tournament=tournament,
+        matches=[BacktestMatchDetail(**r) for r in match_rows],
+    )
+    cache[details_key] = details
+    return details

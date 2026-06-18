@@ -54,6 +54,10 @@ export interface FixtureItem {
   stadium: string;
   stage: string;
   predictable: boolean;
+  status: string;
+  actual_score: string;
+  predicted_score: string;
+  outcome_correct: boolean | null;
 }
 
 export interface BacktestMetrics {
@@ -62,4 +66,21 @@ export interface BacktestMetrics {
   top3_score_accuracy: number;
   brier_score: number;
   log_loss: number;
+}
+
+export interface BacktestMatchDetail {
+  date: string;
+  home_team: string;
+  away_team: string;
+  predicted_score: string;
+  actual_score: string;
+  predicted_winner: string;
+  actual_winner: string;
+  outcome_correct: boolean;
+  score_correct: boolean;
+}
+
+export interface BacktestDetails {
+  tournament: string;
+  matches: BacktestMatchDetail[];
 }

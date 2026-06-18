@@ -94,3 +94,43 @@ def run_backtest(model: object, matches_df: pd.DataFrame) -> dict[str, float]:
         "brier_score": brier,
         "log_loss": ll,
     }
+
+
+def run_backtest_details(model: object, matches_df: pd.DataFrame) -> list[dict]:
+    """Same walk-forward logic as run_backtest but returns per-match detail rows."""
+    df = matches_df.copy().sort_values("date").reset_index(drop=True)
+    rows = []
+
+    for _, row in df.iterrows():
+        home = row["home_team"]
+        away = row["away_team"]
+        stage = row.get("stage", "group")
+        actual_home = int(row["home_goals"])
+        actual_away = int(row["away_goals"])
+        actual_score = f"{actual_home}-{actual_away}"
+
+        if actual_home > actual_away:
+            actual_winner = "home"
+        elif actual_home == actual_away:
+            actual_winner = "draw"
+        else:
+            actual_winner = "away"
+
+        try:
+            result = model.predict(home, away, context={"stage": stage})
+        except Exception:
+            continue
+
+        rows.append({
+            "date": str(row["date"])[:10],
+            "home_team": home,
+            "away_team": away,
+            "predicted_score": result.most_likely_score,
+            "actual_score": actual_score,
+            "predicted_winner": result.predicted_winner,
+            "actual_winner": actual_winner,
+            "outcome_correct": result.predicted_winner == actual_winner,
+            "score_correct": result.most_likely_score == actual_score,
+        })
+
+    return rows
