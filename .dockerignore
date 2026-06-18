@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+*.joblib
+data/raw/
+.git/
+.pytest_cache/
+*.egg-info/
+dist/
+build/
