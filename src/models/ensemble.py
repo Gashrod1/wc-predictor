@@ -121,7 +121,17 @@ class EnsemblePredictor:
         xgb_winner = max(xgb_probs, key=xgb_probs.get).replace("_win", "")
         model_agreement = dc_winner == xgb_winner
 
-        most_likely_score = top_scores[0]["score"] if top_scores else "1-1"
+        # Pick the most likely score whose implied outcome matches predicted_winner
+        def _score_outcome(s: str) -> str:
+            h, a = s.split("-")
+            if int(h) > int(a):
+                return "home"
+            if int(h) < int(a):
+                return "away"
+            return "draw"
+
+        consistent = [s for s in top_scores if _score_outcome(str(s["score"])) == predicted_winner]
+        most_likely_score = (consistent[0] if consistent else top_scores[0])["score"] if top_scores else "1-1"
 
         return PredictionResult(
             home_team=home_team,
