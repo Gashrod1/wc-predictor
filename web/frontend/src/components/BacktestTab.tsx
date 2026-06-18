@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import type { BacktestMetrics } from "../types";
 import { fetchBacktest } from "../api";
 
-const TOURNAMENTS = ["WC2018", "WC2022"];
+const TOURNAMENTS = ["WC2018", "WC2022", "WC2026"];
 
 function MetricsTable({ name, m }: { name: string; m: BacktestMetrics }) {
   return (
