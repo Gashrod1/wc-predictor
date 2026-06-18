@@ -160,23 +160,61 @@ class EnsemblePredictor:
             total = sum(raw.values())
             return {k: v / total for k, v in raw.items()}
 
+    def _enrich_with_live_form(
+        self, home_team: str, away_team: str
+    ) -> pd.DataFrame:
+        """Prepend fresh API form data for both teams to the historical DataFrame.
+
+        Returns the combined DataFrame (API rows first so they rank higher in
+        recency sorting inside _team_form). Falls back to self._historical_df
+        on any API error.
+        """
+        try:
+            from src.data.loader import get_team_form_cached
+            home_form = get_team_form_cached(home_team)
+            away_form = get_team_form_cached(away_team)
+            if home_form.empty and away_form.empty:
+                return self._historical_df
+            extra = pd.concat(
+                [df for df in (home_form, away_form) if not df.empty],
+                ignore_index=True,
+            )
+            # Add any columns the historical_df has but form rows don't
+            for col in self._historical_df.columns:
+                if col not in extra.columns:
+                    extra[col] = None
+            combined = pd.concat([extra, self._historical_df], ignore_index=True)
+            combined = combined.drop_duplicates(
+                subset=["date", "home_team", "away_team"], keep="first"
+            )
+            return combined.sort_values("date").reset_index(drop=True)
+        except Exception:
+            return self._historical_df
+
     def _predict_directed(
         self,
         home_team: str,
         away_team: str,
         stage: str,
         neutral: bool,
+        hist_df: pd.DataFrame | None = None,
     ) -> tuple[dict[str, float], dict[str, float], dict[str, float], list[dict[str, object]]]:
         """Compute raw (non-symmetrised) per-model and blended probabilities.
+
+        Args:
+            hist_df: Optional enriched historical DataFrame. Falls back to
+                self._historical_df if not provided.
 
         Returns:
             (dc_probs, xgb_probs, blended, top_scores)
         """
+        df = hist_df if hist_df is not None else self._historical_df
+
         dc_probs = self.dc_model.predict_outcome_probabilities(home_team, away_team, neutral=neutral)
         top_scores = self.dc_model.predict_top_scores(home_team, away_team, top_n=5, neutral=neutral)
 
         features = build_match_features(
-            home_team, away_team, self._elo_ratings, self._historical_df,
+            home_team, away_team, self._elo_ratings, df,
             stage=stage,
             squad_loader=self._squad_loader,
             chemistry_analyzer=self._chemistry_analyzer,
@@ -230,8 +268,14 @@ class EnsemblePredictor:
         # (except USA/Canada/Mexico as hosts — set neutral=False for those games)
         neutral = bool(ctx.get("neutral", True))
 
+        # Enrich historical_df with fresh form data from API (if key configured).
+        # This updates home/away form features with real recent matches rather
+        # than just WC-only historical averages. Cache TTL = 24h → ≤2 API calls
+        # per team pair per day.
+        enriched_df = self._enrich_with_live_form(home_team, away_team)
+
         dc_ab, xgb_ab, blend_ab, top_scores = self._predict_directed(
-            home_team, away_team, stage, neutral
+            home_team, away_team, stage, neutral, hist_df=enriched_df
         )
 
         if neutral:
@@ -239,7 +283,7 @@ class EnsemblePredictor:
             # Averaging eliminates the ordering bias from both DC (rho asymmetry)
             # and XGBoost (directional features like elo_diff, home_form_*).
             dc_ba, xgb_ba, blend_ba, _ = self._predict_directed(
-                away_team, home_team, stage, neutral
+                away_team, home_team, stage, neutral, hist_df=enriched_df
             )
             dc_probs  = self._avg(dc_ab,    self._flip(dc_ba))
             xgb_probs = self._avg(xgb_ab,   self._flip(xgb_ba))

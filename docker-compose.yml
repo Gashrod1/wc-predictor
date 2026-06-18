@@ -4,6 +4,7 @@ services:
     volumes:
       - ./data:/app/data
       - ./models:/app/models
+      - ./scripts:/app/scripts
     env_file:
       - .env
     working_dir: /app

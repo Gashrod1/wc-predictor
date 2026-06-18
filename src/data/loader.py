@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import time
 from pathlib import Path
 
 import pandas as pd
@@ -184,8 +185,16 @@ def _fetch_historical_form(team: str, n_matches: int) -> pd.DataFrame:
 
 
 def _fetch_api_form(team: str, n_matches: int, api_key: str) -> pd.DataFrame:
-    """Fetch recent form from API-Football v3."""
+    """Fetch recent form from API-Football v3 across all competitions.
+
+    Searches for the national team by name (type=national), then fetches
+    the last n_matches finished fixtures regardless of competition — this
+    captures qualifiers, friendlies, and continental tournaments, not just
+    World Cup matches.
+    """
     headers = {"x-apisports-key": api_key}
+
+    # Resolve national team ID
     resp = requests.get(
         "https://v3.football.api-sports.io/teams",
         headers=headers,
@@ -198,28 +207,90 @@ def _fetch_api_form(team: str, n_matches: int, api_key: str) -> pd.DataFrame:
         return pd.DataFrame()
 
     team_id = data["response"][0]["team"]["id"]
-    fixtures_resp = requests.get(
-        "https://v3.football.api-sports.io/fixtures",
-        headers=headers,
-        params={"team": team_id, "last": n_matches, "league": "1"},
-        timeout=10,
-    )
-    fixtures_resp.raise_for_status()
-    fixtures = fixtures_resp.json().get("response", [])
+
+    # Free plan supports team+season (2022-2024) but not the `last` param.
+    # Collect from 2024 → 2023 → 2022 until we have enough finished matches.
+    all_fixtures: list[dict] = []
+    for season in (2024, 2023, 2022):
+        if len(all_fixtures) >= n_matches:
+            break
+        r = requests.get(
+            "https://v3.football.api-sports.io/fixtures",
+            headers=headers,
+            params={"team": team_id, "season": season},
+            timeout=10,
+        )
+        r.raise_for_status()
+        season_fixtures = [
+            f for f in r.json().get("response", [])
+            if f["fixture"]["status"]["short"] in ("FT", "AET", "PEN")
+        ]
+        all_fixtures.extend(season_fixtures)
+
+    # Sort by date descending, take the n most recent
+    all_fixtures.sort(key=lambda f: f["fixture"]["date"], reverse=True)
+    all_fixtures = all_fixtures[:n_matches]
 
     rows = []
-    for f in fixtures:
-        rows.append(
-            {
-                "date": f["fixture"]["date"][:10],
-                "home_team": f["teams"]["home"]["name"],
-                "away_team": f["teams"]["away"]["name"],
-                "home_goals": f["goals"]["home"] or 0,
-                "away_goals": f["goals"]["away"] or 0,
-                "home_xg": f["goals"]["home"] or 0,
-                "away_xg": f["goals"]["away"] or 0,
-                "stage": "international",
-                "tournament": "API",
-            }
-        )
+    for f in all_fixtures:
+        score_ft = f["score"]["fulltime"]
+        hg = score_ft.get("home") if score_ft else f["goals"]["home"]
+        ag = score_ft.get("away") if score_ft else f["goals"]["away"]
+        if hg is None or ag is None:
+            continue
+        rows.append({
+            "date":       f["fixture"]["date"][:10],
+            "home_team":  f["teams"]["home"]["name"],
+            "away_team":  f["teams"]["away"]["name"],
+            "home_goals": int(hg),
+            "away_goals": int(ag),
+            "home_xg":    float(hg),   # xG not on free plan; use goals as proxy
+            "away_xg":    float(ag),
+            "stage":      "international",
+            "tournament": f["league"].get("name", "API"),
+        })
     return pd.DataFrame(rows)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Cached form loader (1-day TTL Parquet file per team)
+# ──────────────────────────────────────────────────────────────────────────────
+_FORM_CACHE_DIR = _DATA_DIR / "raw" / "form"
+_FORM_CACHE_TTL_SECONDS = 86_400  # 24 hours
+
+
+def get_team_form_cached(team: str, n_matches: int = 5) -> pd.DataFrame:
+    """Return recent match form for *team*, with 24-hour file cache.
+
+    On cache miss: fetches from API-Football if key is configured, else
+    returns an empty DataFrame (caller should fall back to historical CSV).
+    On cache hit: returns the cached parquet without touching the API.
+
+    Args:
+        team: Canonical English team name.
+        n_matches: How many recent matches to retrieve.
+
+    Returns:
+        DataFrame with columns date, home_team, away_team, home_goals,
+        away_goals, home_xg, away_xg, stage, tournament.
+        Empty DataFrame if no API key and no cache.
+    """
+    _FORM_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    safe = team.replace(" ", "_").replace("/", "_")
+    cache_path = _FORM_CACHE_DIR / f"{safe}.parquet"
+
+    if cache_path.exists():
+        age = time.time() - cache_path.stat().st_mtime
+        if age < _FORM_CACHE_TTL_SECONDS:
+            try:
+                return pd.read_parquet(cache_path)
+            except Exception:
+                pass  # corrupt cache — refetch
+
+    df = fetch_recent_form(team, n_matches)
+    if not df.empty:
+        try:
+            df.to_parquet(cache_path, index=False)
+        except Exception:
+            pass  # non-fatal
+    return df
