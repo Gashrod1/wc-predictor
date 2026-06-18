@@ -137,12 +137,19 @@ class DixonColesModel:
         self.home_advantage = float(np.exp(params[2 * n]))
         self.rho = float(params[2 * n + 1])
 
-    def _get_lambdas(self, home_team: str, away_team: str) -> tuple[float, float]:
+    def _get_lambdas(
+        self, home_team: str, away_team: str, neutral: bool = False
+    ) -> tuple[float, float]:
         """Compute expected goals for both teams, clipped and shrunk to CdM priors.
 
         Applies two safety layers:
         1. clip_lambda — hard bounds from observed CdM lambdas
         2. shrink_to_prior — 15% pull towards historical CdM averages
+
+        Args:
+            home_team: First team name.
+            away_team: Second team name.
+            neutral: If True, home advantage is set to 1.0 (neutral venue).
         """
         mean_attack = float(np.mean(list(self.attack_params.values()))) if self.attack_params else 0.0
         mean_defense = float(np.mean(list(self.defense_params.values()))) if self.defense_params else 0.0
@@ -152,7 +159,8 @@ class DixonColesModel:
         atk_a = self.attack_params.get(away_team, mean_attack)
         def_a = self.defense_params.get(away_team, mean_defense)
 
-        lambda_h = np.exp(atk_h - def_a + np.log(self.home_advantage))
+        ha = 1.0 if neutral else self.home_advantage
+        lambda_h = np.exp(atk_h - def_a + np.log(ha))
         mu_a = np.exp(atk_a - def_h)
 
         # Apply score realism constraints
@@ -164,7 +172,7 @@ class DixonColesModel:
         return lambda_h, mu_a
 
     def predict_score_distribution(
-        self, home_team: str, away_team: str
+        self, home_team: str, away_team: str, neutral: bool = False
     ) -> np.ndarray:
         """Return (max_goals x max_goals) matrix of score probabilities.
 
@@ -172,13 +180,14 @@ class DixonColesModel:
         applied to cells where i+j <= 2.
 
         Args:
-            home_team: Home team name.
-            away_team: Away team name.
+            home_team: First team name.
+            away_team: Second team name.
+            neutral: If True, no home advantage is applied (neutral venue).
 
         Returns:
-            8x8 numpy array of joint score probabilities.
+            6x6 numpy array of joint score probabilities.
         """
-        lambda_h, mu_a = self._get_lambdas(home_team, away_team)
+        lambda_h, mu_a = self._get_lambdas(home_team, away_team, neutral=neutral)
         matrix = np.zeros((_MAX_GOALS, _MAX_GOALS))
 
         for i in range(_MAX_GOALS):
@@ -192,20 +201,21 @@ class DixonColesModel:
         return matrix
 
     def predict_top_scores(
-        self, home_team: str, away_team: str, top_n: int = 5
+        self, home_team: str, away_team: str, top_n: int = 5, neutral: bool = False
     ) -> list[dict[str, object]]:
         """Return the top_n most probable exact scorelines.
 
         Args:
-            home_team: Home team name.
-            away_team: Away team name.
+            home_team: First team name.
+            away_team: Second team name.
             top_n: Number of scores to return.
+            neutral: If True, no home advantage applied.
 
         Returns:
             List of dicts with keys 'score' (str) and 'probability' (float),
             sorted descending by probability.
         """
-        matrix = self.predict_score_distribution(home_team, away_team)
+        matrix = self.predict_score_distribution(home_team, away_team, neutral=neutral)
         scores = []
         for i in range(_MAX_GOALS):
             for j in range(_MAX_GOALS):
@@ -214,18 +224,19 @@ class DixonColesModel:
         return scores[:top_n]
 
     def predict_outcome_probabilities(
-        self, home_team: str, away_team: str
+        self, home_team: str, away_team: str, neutral: bool = False
     ) -> dict[str, float]:
         """Return win/draw/loss probabilities for the match.
 
         Args:
-            home_team: Home team name.
-            away_team: Away team name.
+            home_team: First team name.
+            away_team: Second team name.
+            neutral: If True, no home advantage applied (neutral venue).
 
         Returns:
             Dict with keys 'home_win', 'draw', 'away_win', each in [0, 1].
         """
-        matrix = self.predict_score_distribution(home_team, away_team)
+        matrix = self.predict_score_distribution(home_team, away_team, neutral=neutral)
         home_win = float(np.tril(matrix, -1).sum())
         draw = float(np.trace(matrix))
         away_win = float(np.triu(matrix, 1).sum())

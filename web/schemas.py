@@ -10,6 +10,7 @@ class PredictRequest(BaseModel):
     home: str
     away: str
     stage: str = "group"
+    neutral: bool = True  # True = terrain neutre (défaut WC)
 
 
 class ScoreItem(BaseModel):

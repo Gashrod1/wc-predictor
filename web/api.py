@@ -91,7 +91,7 @@ def post_predict(req: PredictRequest) -> PredictResponse:
     predictor: EnsemblePredictor = _state["predictor"]  # type: ignore[assignment]
     home = resolve_team_name(req.home)
     away = resolve_team_name(req.away)
-    result = predictor.predict(home, away, context={"stage": req.stage})
+    result = predictor.predict(home, away, context={"stage": req.stage, "neutral": req.neutral})
     return PredictResponse(
         home_team=result.home_team,
         away_team=result.away_team,

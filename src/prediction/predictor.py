@@ -46,13 +46,16 @@ def predict_match(
     home_team: str,
     away_team: str,
     stage: str = "group",
+    neutral: bool = True,
 ) -> PredictionResult:
     """Predict a single match outcome using the ensemble.
 
     Args:
-        home_team: Home team name (French aliases resolved automatically).
-        away_team: Away team name.
+        home_team: First team name (French aliases resolved automatically).
+        away_team: Second team name.
         stage: Match stage (e.g. 'group', 'semi_final', 'final').
+        neutral: If True (default), no home advantage applied — correct for all
+            World Cup matches except USA/Canada/Mexico games on their own soil.
 
     Returns:
         PredictionResult with all prediction details.
@@ -61,7 +64,7 @@ def predict_match(
     return predictor.predict(
         resolve_team_name(home_team),
         resolve_team_name(away_team),
-        context={"stage": stage},
+        context={"stage": stage, "neutral": neutral},
     )
 
 

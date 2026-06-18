@@ -33,7 +33,9 @@ def cmd_predict(args: argparse.Namespace) -> None:
 
     console.print(f"\n[dim]Predicting {home} vs {away} ({stage})...[/dim]")
 
-    result = predict_match(home, away, stage=stage)
+    # neutral=True par défaut (terrain neutre WC). --host désactive pour USA/CAN/MEX à domicile.
+    neutral = not getattr(args, "host", False)
+    result = predict_match(home, away, stage=stage, neutral=neutral)
     probs = result.outcome_probabilities
 
     home_pct = probs["home_win"] * 100
@@ -175,10 +177,14 @@ def main() -> None:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     predict_parser = subparsers.add_parser("predict", help="Predict a match outcome")
-    predict_parser.add_argument("--home", required=True, help="Home team name")
-    predict_parser.add_argument("--away", required=True, help="Away team name")
+    predict_parser.add_argument("--home", required=True, help="First team name")
+    predict_parser.add_argument("--away", required=True, help="Second team name")
     predict_parser.add_argument("--stage", default="group", help="Match stage (default: group)")
     predict_parser.add_argument("--json", action="store_true", help="Also output raw JSON")
+    predict_parser.add_argument(
+        "--host", action="store_true",
+        help="First team plays at home (disables neutral-venue mode — use for USA/Canada/Mexico group games)"
+    )
 
     bt_parser = subparsers.add_parser("backtest", help="Run backtesting on a tournament")
     bt_parser.add_argument("--tournament", required=True, help="Tournament ID e.g. WC2022")

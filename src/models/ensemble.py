@@ -1,7 +1,7 @@
 """Weighted ensemble combining Dixon-Coles and XGBoost predictions."""
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
@@ -21,8 +21,8 @@ class PredictionResult:
     """Container for a single match prediction.
 
     Attributes:
-        home_team: Name of the home team.
-        away_team: Name of the away team.
+        home_team: Name of the first team.
+        away_team: Name of the second team.
         outcome_probabilities: Dict with keys home_win, draw, away_win.
         predicted_winner: "home", "draw", or "away".
         most_likely_score: E.g. "2-1".
@@ -136,37 +136,12 @@ class EnsemblePredictor:
         lr.fit(np.array(X_rows), np.array(y_rows))
         self._weight_model = lr
 
-    def predict(
+    def _blend(
         self,
-        home_team: str,
-        away_team: str,
-        context: dict[str, object] | None = None,
-    ) -> PredictionResult:
-        """Generate an ensemble prediction for a match.
-
-        Args:
-            home_team: Home team name.
-            away_team: Away team name.
-            context: Optional dict with key 'stage' (e.g. 'semi_final').
-
-        Returns:
-            PredictionResult with combined probabilities, divergence metadata,
-            and per-model scenarios.
-        """
-        stage = (context or {}).get("stage", "group")
-
-        dc_probs = self.dc_model.predict_outcome_probabilities(home_team, away_team)
-        top_scores = self.dc_model.predict_top_scores(home_team, away_team, top_n=5)
-
-        features = build_match_features(
-            home_team, away_team, self._elo_ratings, self._historical_df,
-            stage=str(stage),
-            squad_loader=self._squad_loader,
-            chemistry_analyzer=self._chemistry_analyzer,
-        )
-        xgb_probs = self.xgb_model.predict_proba(features)
-
-        # --- Blend ---
+        dc_probs: dict[str, float],
+        xgb_probs: dict[str, float],
+    ) -> dict[str, float]:
+        """Weighted blend of DC and XGB outcome probabilities."""
         if self._weight_model is not None:
             features_arr = np.array([[
                 dc_probs["home_win"], dc_probs["draw"], dc_probs["away_win"],
@@ -175,20 +150,109 @@ class EnsemblePredictor:
             lr_proba = self._weight_model.predict_proba(features_arr)[0]
             classes: list[int] = list(self._weight_model.classes_)
             label_map = {0: "away_win", 1: "draw", 2: "home_win"}
-            blended: dict[str, float] = {label_map[c]: float(p) for c, p in zip(classes, lr_proba)}
+            return {label_map[c]: float(p) for c, p in zip(classes, lr_proba)}
         else:
-            blended = {
+            raw = {
                 "home_win": self.dc_weight * dc_probs["home_win"] + self.xgb_weight * xgb_probs["home_win"],
                 "draw":     self.dc_weight * dc_probs["draw"]     + self.xgb_weight * xgb_probs["draw"],
                 "away_win": self.dc_weight * dc_probs["away_win"] + self.xgb_weight * xgb_probs["away_win"],
             }
-            total = sum(blended.values())
-            blended = {k: v / total for k, v in blended.items()}
+            total = sum(raw.values())
+            return {k: v / total for k, v in raw.items()}
+
+    def _predict_directed(
+        self,
+        home_team: str,
+        away_team: str,
+        stage: str,
+        neutral: bool,
+    ) -> tuple[dict[str, float], dict[str, float], dict[str, float], list[dict[str, object]]]:
+        """Compute raw (non-symmetrised) per-model and blended probabilities.
+
+        Returns:
+            (dc_probs, xgb_probs, blended, top_scores)
+        """
+        dc_probs = self.dc_model.predict_outcome_probabilities(home_team, away_team, neutral=neutral)
+        top_scores = self.dc_model.predict_top_scores(home_team, away_team, top_n=5, neutral=neutral)
+
+        features = build_match_features(
+            home_team, away_team, self._elo_ratings, self._historical_df,
+            stage=stage,
+            squad_loader=self._squad_loader,
+            chemistry_analyzer=self._chemistry_analyzer,
+        )
+        xgb_probs = self.xgb_model.predict_proba(features)
+        blended = self._blend(dc_probs, xgb_probs)
+
+        return dc_probs, xgb_probs, blended, top_scores
+
+    @staticmethod
+    def _flip(probs: dict[str, float]) -> dict[str, float]:
+        """Swap home_win and away_win (perspective flip for neutral symmetry)."""
+        return {
+            "home_win": probs["away_win"],
+            "draw":     probs["draw"],
+            "away_win": probs["home_win"],
+        }
+
+    @staticmethod
+    def _avg(a: dict[str, float], b: dict[str, float]) -> dict[str, float]:
+        """Average two probability dicts."""
+        return {k: (a[k] + b[k]) / 2 for k in a}
+
+    def predict(
+        self,
+        home_team: str,
+        away_team: str,
+        context: dict[str, object] | None = None,
+    ) -> PredictionResult:
+        """Generate an ensemble prediction for a match.
+
+        When neutral=True (default), the prediction is symmetrised: the model
+        is run once with home_team listed first and once with away_team listed
+        first, and the results are averaged. This removes any 'listed first'
+        bias from both the Dixon-Coles rho correction and the XGBoost
+        order-dependent features (elo_diff, home/away form).
+
+        Args:
+            home_team: First team name.
+            away_team: Second team name.
+            context: Optional dict with keys:
+                - 'stage': match stage string (default 'group')
+                - 'neutral': bool, True = no home advantage (default True)
+
+        Returns:
+            PredictionResult with symmetric probabilities on neutral venues.
+        """
+        ctx = context or {}
+        stage = str(ctx.get("stage", "group"))
+        # Default neutral=True: at the World Cup no team plays at home
+        # (except USA/Canada/Mexico as hosts — set neutral=False for those games)
+        neutral = bool(ctx.get("neutral", True))
+
+        dc_ab, xgb_ab, blend_ab, top_scores = self._predict_directed(
+            home_team, away_team, stage, neutral
+        )
+
+        if neutral:
+            # Run prediction in the reverse direction, then flip perspective.
+            # Averaging eliminates the ordering bias from both DC (rho asymmetry)
+            # and XGBoost (directional features like elo_diff, home_form_*).
+            dc_ba, xgb_ba, blend_ba, _ = self._predict_directed(
+                away_team, home_team, stage, neutral
+            )
+            dc_probs  = self._avg(dc_ab,    self._flip(dc_ba))
+            xgb_probs = self._avg(xgb_ab,   self._flip(xgb_ba))
+            blended   = self._avg(blend_ab,  self._flip(blend_ba))
+        else:
+            dc_probs  = dc_ab
+            xgb_probs = xgb_ab
+            blended   = blend_ab
 
         predicted_winner = max(blended, key=blended.get).replace("_win", "")
 
         # --- Per-model scenarios ---
-        dc_winner = max(dc_probs, key=dc_probs.get).replace("_win", "")
+        dc_winner  = max(dc_probs,  key=dc_probs.get).replace("_win", "")
         xgb_winner = max(xgb_probs, key=xgb_probs.get).replace("_win", "")
         model_agreement = dc_winner == xgb_winner
 
