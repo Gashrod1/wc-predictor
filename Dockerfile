@@ -7,8 +7,8 @@ RUN python -m venv /app/.venv
 
 # Install dependencies into the venv
 COPY requirements.txt .
-RUN /app/.venv/bin/pip install --upgrade pip && \
-    /app/.venv/bin/pip install -r requirements.txt
+RUN /app/.venv/bin/pip install --upgrade pip --no-cache-dir && \
+    /app/.venv/bin/pip install --no-cache-dir -r requirements.txt
 
 # Copy source code
 COPY . .

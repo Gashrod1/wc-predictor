@@ -11,3 +11,4 @@ data/raw/
 *.egg-info/
 dist/
 build/
+models/
