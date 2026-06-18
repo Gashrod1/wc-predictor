@@ -1,0 +1,7 @@
+.env
+__pycache__/
+*.pyc
+.pytest_cache/
+models/saved/*.joblib
+web/frontend/node_modules/
+web/frontend/dist/
