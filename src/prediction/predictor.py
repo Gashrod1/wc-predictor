@@ -5,7 +5,7 @@ from pathlib import Path
 
 import joblib
 
-from src.data.loader import load_historical_matches, load_elo_ratings
+from src.data.loader import load_historical_matches, load_elo_ratings, resolve_team_name
 from src.models.dixon_coles import DixonColesModel
 from src.models.ensemble import EnsemblePredictor, PredictionResult
 from src.models.xgboost_classifier import XGBoostOutcomeClassifier
@@ -47,7 +47,11 @@ def predict_match(
         PredictionResult with all prediction details.
     """
     predictor = load_or_train_predictor()
-    return predictor.predict(home_team, away_team, context={"stage": stage})
+    return predictor.predict(
+        resolve_team_name(home_team),
+        resolve_team_name(away_team),
+        context={"stage": stage},
+    )
 
 
 def _train_models() -> tuple[DixonColesModel, XGBoostOutcomeClassifier]:

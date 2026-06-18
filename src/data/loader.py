@@ -13,6 +13,52 @@ from src.data.elo import load_elo_from_csv
 load_dotenv()
 
 _DATA_DIR = Path(__file__).parent.parent.parent / "data"
+
+# French/common aliases → canonical English team names used in CSV data
+TEAM_ALIASES: dict[str, str] = {
+    "Argentine": "Argentina",
+    "Brésil": "Brazil",
+    "Allemagne": "Germany",
+    "Espagne": "Spain",
+    "Italie": "Italy",
+    "Angleterre": "England",
+    "Pays-Bas": "Netherlands",
+    "Hollande": "Netherlands",
+    "Suisse": "Switzerland",
+    "Suède": "Sweden",
+    "Danemark": "Denmark",
+    "Croatie": "Croatia",
+    "Pologne": "Poland",
+    "Sénégal": "Senegal",
+    "Maroc": "Morocco",
+    "Corée du Sud": "South Korea",
+    "Japon": "Japan",
+    "Australie": "Australia",
+    "Mexique": "Mexico",
+    "Costa Rica": "Costa Rica",
+    "États-Unis": "USA",
+    "Cameroun": "Cameroon",
+    "Tunisie": "Tunisia",
+    "Ghana": "Ghana",
+    "Équateur": "Ecuador",
+    "Uruguay": "Uruguay",
+    "Belgique": "Belgium",
+    "Russie": "Russia",
+    "Serbie": "Serbia",
+    "Arabie Saoudite": "Saudi Arabia",
+}
+
+
+def resolve_team_name(name: str) -> str:
+    """Resolve a team name alias to its canonical English form.
+
+    Args:
+        name: Team name, possibly in French or with alternate spelling.
+
+    Returns:
+        Canonical English team name.
+    """
+    return TEAM_ALIASES.get(name, name)
 _HISTORICAL_DIR = _DATA_DIR / "historical"
 
 

@@ -73,33 +73,40 @@ class DixonColesModel:
         x0[2 * n] = 0.1      # log home advantage
         x0[2 * n + 1] = -0.1  # rho
 
+        # Precompute index arrays (do this BEFORE defining neg_log_likelihood)
+        hi_arr_pre = np.array([team_idx[t] for t in df["home_team"]])
+        ai_arr_pre = np.array([team_idx[t] for t in df["away_team"]])
+        hg_arr_pre = df["home_goals"].values.astype(int)
+        ag_arr_pre = df["away_goals"].values.astype(int)
+        w_arr_pre = df["weight"].values
+
         def neg_log_likelihood(params: np.ndarray) -> float:
             attack = params[:n]
             defense = params[n : 2 * n]
             log_home_adv = params[2 * n]
             rho_ = params[2 * n + 1]
 
-            ll = 0.0
-            for _, row in df.iterrows():
-                hi = team_idx[row["home_team"]]
-                ai = team_idx[row["away_team"]]
-                hg = int(row["home_goals"])
-                ag = int(row["away_goals"])
-                w = row["weight"]
+            lambda_h_arr = np.exp(attack[hi_arr_pre] - defense[ai_arr_pre] + log_home_adv)
+            mu_a_arr = np.exp(attack[ai_arr_pre] - defense[hi_arr_pre])
 
-                lambda_h = np.exp(attack[hi] - defense[ai] + log_home_adv)
-                mu_a = np.exp(attack[ai] - defense[hi])
+            tau_arr = np.ones(len(df))
+            mask_00 = (hg_arr_pre == 0) & (ag_arr_pre == 0)
+            mask_10 = (hg_arr_pre == 1) & (ag_arr_pre == 0)
+            mask_01 = (hg_arr_pre == 0) & (ag_arr_pre == 1)
+            mask_11 = (hg_arr_pre == 1) & (ag_arr_pre == 1)
 
-                t = _tau(hg, ag, lambda_h, mu_a, rho_)
-                if t <= 0:
-                    t = 1e-10
+            tau_arr[mask_00] = 1.0 - lambda_h_arr[mask_00] * mu_a_arr[mask_00] * rho_
+            tau_arr[mask_10] = 1.0 + mu_a_arr[mask_10] * rho_
+            tau_arr[mask_01] = 1.0 + lambda_h_arr[mask_01] * rho_
+            tau_arr[mask_11] = 1.0 - rho_
+            tau_arr = np.maximum(tau_arr, 1e-10)
 
-                ll += w * (
-                    np.log(t)
-                    + poisson.logpmf(hg, lambda_h)
-                    + poisson.logpmf(ag, mu_a)
-                )
-            return -ll
+            ll = w_arr_pre * (
+                np.log(tau_arr)
+                + poisson.logpmf(hg_arr_pre, lambda_h_arr)
+                + poisson.logpmf(ag_arr_pre, mu_a_arr)
+            )
+            return -ll.sum()
 
         constraints = [
             {
