@@ -159,3 +159,53 @@ def test_ensemble_predict_returns_prediction_result():
     assert 0.0 <= result.confidence <= 1.0
     assert len(result.top_scores) == 5
     assert isinstance(result.model_agreement, bool)
+
+
+import pandas as pd
+from src.models.ensemble import EnsemblePredictor, PredictionResult
+from src.models.dixon_coles import DixonColesModel
+from src.models.xgboost_classifier import XGBoostOutcomeClassifier
+from src.data.features import build_match_features
+from src.data.loader import load_historical_matches, load_elo_ratings
+
+
+def test_prediction_result_has_divergence_fields():
+    df = load_historical_matches()
+    elo = load_elo_ratings()
+    dc = DixonColesModel()
+    dc.fit(df)
+    rows, labels = [], []
+    for _, row in df.iterrows():
+        rows.append(build_match_features(row["home_team"], row["away_team"], elo, df, stage=row["stage"]))
+        labels.append(2 if row["home_goals"] > row["away_goals"] else (1 if row["home_goals"] == row["away_goals"] else 0))
+    xgb = XGBoostOutcomeClassifier()
+    xgb.fit(pd.DataFrame(rows), pd.Series(labels))
+    ensemble = EnsemblePredictor(dc_model=dc, xgb_model=xgb)
+    result = ensemble.predict("France", "Brazil", context={"stage": "semi_final"})
+
+    assert hasattr(result, "model_divergence"), "missing model_divergence"
+    assert hasattr(result, "scenario_dc"), "missing scenario_dc"
+    assert hasattr(result, "scenario_xgb"), "missing scenario_xgb"
+    assert 0.0 <= result.model_divergence <= 1.0
+    assert result.scenario_dc in ("home", "draw", "away")
+    assert result.scenario_xgb in ("home", "draw", "away")
+
+
+def test_confidence_penalised_when_models_diverge():
+    """High divergence should lower confidence."""
+    result_low = PredictionResult(
+        home_team="A", away_team="B",
+        outcome_probabilities={"home_win": 0.7, "draw": 0.2, "away_win": 0.1},
+        predicted_winner="home", most_likely_score="1-0",
+        top_scores=[], confidence=0.5, model_agreement=True,
+        model_divergence=0.0, scenario_dc="home", scenario_xgb="home",
+    )
+    result_high = PredictionResult(
+        home_team="A", away_team="B",
+        outcome_probabilities={"home_win": 0.7, "draw": 0.2, "away_win": 0.1},
+        predicted_winner="home", most_likely_score="1-0",
+        top_scores=[], confidence=0.5, model_agreement=False,
+        model_divergence=0.5, scenario_dc="home", scenario_xgb="away",
+    )
+    assert result_low.model_divergence == 0.0
+    assert result_high.model_divergence == 0.5

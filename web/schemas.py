@@ -31,6 +31,9 @@ class PredictResponse(BaseModel):
     top_scores: list[ScoreItem]
     confidence: float
     model_agreement: bool
+    model_divergence: float = 0.0
+    scenario_dc: str = ""
+    scenario_xgb: str = ""
 
 
 class TeamInfo(BaseModel):

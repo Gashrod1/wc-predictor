@@ -100,6 +100,9 @@ def post_predict(req: PredictRequest) -> PredictResponse:
         top_scores=result.top_scores,
         confidence=result.confidence,
         model_agreement=result.model_agreement,
+        model_divergence=result.model_divergence,
+        scenario_dc=result.scenario_dc,
+        scenario_xgb=result.scenario_xgb,
     )
 
 
