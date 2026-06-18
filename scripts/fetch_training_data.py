@@ -91,6 +91,59 @@ def _process_wc_year(df: pd.DataFrame, year: str) -> pd.DataFrame:
                "stage", "tournament"]].reset_index(drop=True)
 
 
+# Tournaments to exclude from competitive matches (non-FIFA minor regional cups)
+_EXCLUDE_TOURNAMENTS = [
+    "CECAFA", "COSAFA", "CONIFA", "Island Games", "CFU Caribbean",
+]
+
+
+def fetch_competitive_matches(df: pd.DataFrame) -> pd.DataFrame:
+    """Filter the martj42 DataFrame to competitive international matches.
+
+    Keeps post-2000 matches, excluding friendlies and non-FIFA minor regional
+    cups (CECAFA, COSAFA, CONIFA, Island Games, CFU Caribbean).
+
+    Args:
+        df: Full martj42 international results DataFrame (already downloaded).
+
+    Returns:
+        DataFrame with columns: date, home_team, away_team, home_goals,
+        away_goals, stage, tournament.
+    """
+    # Work on a copy with normalised column names
+    out = df.copy()
+    out = out.rename(columns={"home_score": "home_goals", "away_score": "away_goals"})
+
+    # Post-2000 only
+    out = out[out["date"].str[:4].astype(int) >= 2001]
+
+    # Exclude friendlies
+    friendly_mask = out["tournament"].str.contains("friendly", case=False, na=False)
+    out = out[~friendly_mask]
+
+    # Exclude non-FIFA minor regional cups
+    for term in _EXCLUDE_TOURNAMENTS:
+        out = out[~out["tournament"].str.contains(term, case=False, na=False)]
+
+    # Exclude rows already covered by WC CSV files (handled separately)
+    out = out[out["tournament"] != "FIFA World Cup"]
+
+    # Drop rows with missing goals
+    out = out.dropna(subset=["home_goals", "away_goals"])
+    out["home_goals"] = out["home_goals"].astype(int)
+    out["away_goals"] = out["away_goals"].astype(int)
+
+    # Normalise team names
+    out["home_team"] = out["home_team"].apply(_norm)
+    out["away_team"] = out["away_team"].apply(_norm)
+
+    # Default stage: group (qualifying / group stage matches)
+    out["stage"] = "group"
+
+    return out[["date", "home_team", "away_team", "home_goals", "away_goals",
+                "stage", "tournament"]].reset_index(drop=True)
+
+
 def main() -> None:
     print("Fetching martj42/international_results …")
     try:
@@ -125,8 +178,15 @@ def main() -> None:
         print(f"  WC{year}: {len(wc)} matches → {out_path.name}")
         imported += 1
 
-    print(f"\nDone — {imported} season(s) imported.")
-    print("Run 'docker compose run --rm app python cli.py train' to retrain models.")
+    print(f"\nDone — {imported} WC season(s) imported.")
+
+    # Also fetch competitive international matches for broader training
+    competitive = fetch_competitive_matches(df)  # df already downloaded above
+    path = _OUT_DIR / "international_competitive.csv"
+    competitive.to_csv(path, index=False)
+    print(f"Competitive: {len(competitive):,} matches → {path.name}")
+
+    print("\nRun 'docker compose run --rm app python cli.py train' to retrain models.")
 
 
 if __name__ == "__main__":

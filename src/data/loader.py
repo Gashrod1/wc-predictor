@@ -144,13 +144,68 @@ def load_elo_ratings(as_of_tournament: str | None = None) -> dict[str, float]:
     if as_of_tournament:
         df = df[~df["tournament"].str.contains(as_of_tournament, na=False)]
 
-    if df.empty:
+    # Load competitive international matches (if fetched) for better ELO
+    comp_path = _DATA_DIR / "historical" / "international_competitive.csv"
+    try:
+        comp_df = pd.read_csv(comp_path)
+        # Combine with WC data, drop duplicates
+        all_df = pd.concat([df, comp_df], ignore_index=True).drop_duplicates(
+            subset=["date", "home_team", "away_team"]
+        ).sort_values("date").reset_index(drop=True)
+    except Exception:
+        all_df = df
+
+    if all_df.empty:
         return seed
 
-    computed = compute_elo_from_matches(df, seed=seed)
+    computed = compute_elo_from_matches(all_df, seed=seed)
 
     # Merge: computed ratings take precedence; CSV fills in the rest
     return {**seed, **computed}
+
+
+def load_elo_trends(
+    as_of_tournament: str | None = None,
+    days: int = 180,
+) -> dict[str, float]:
+    """Return ELO trend (momentum) for each team over the last `days` days.
+
+    Uses all available historical data (WC + competitive) for the computation.
+    Excludes `as_of_tournament` matches to avoid backtesting data leakage.
+
+    Args:
+        as_of_tournament: Optional tournament to exclude (e.g. "WC2026").
+        days: Trend lookback window in days.
+
+    Returns:
+        Dict mapping team name to ELO delta (positive = improving form).
+    """
+    from src.data.elo import compute_elo_trend, load_elo_from_csv
+
+    try:
+        seed = load_elo_from_csv(str(_HISTORICAL_DIR / "elo_ratings.csv"))
+    except Exception:
+        seed = {}
+
+    df = load_historical_matches()
+    if as_of_tournament:
+        df = df[~df["tournament"].str.contains(as_of_tournament, na=False)]
+
+    comp_path = _DATA_DIR / "historical" / "international_competitive.csv"
+    try:
+        comp_df = pd.read_csv(comp_path)
+        if as_of_tournament:
+            comp_df = comp_df[~comp_df["tournament"].str.contains(as_of_tournament, na=False)]
+        df = pd.concat([df, comp_df], ignore_index=True).drop_duplicates(
+            subset=["date", "home_team", "away_team"]
+        ).sort_values("date").reset_index(drop=True)
+    except Exception:
+        pass
+
+    if df.empty:
+        return {}
+
+    return compute_elo_trend(df, seed=seed, days=days)
 
 
 def fetch_recent_form(team: str, n_matches: int = 5) -> pd.DataFrame:
