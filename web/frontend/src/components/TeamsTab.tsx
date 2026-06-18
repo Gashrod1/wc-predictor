@@ -45,9 +45,11 @@ export default function TeamsTab({ teams }: Props) {
   const [awayDetail, setAwayDetail] = useState<TeamDetail | null>(null);
   const [h2h, setH2H] = useState<H2HResponse | null>(null);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   async function compare() {
     setError("");
+    setLoading(true);
     try {
       const [hd, ad, h] = await Promise.all([
         fetchTeam(home),
@@ -59,6 +61,8 @@ export default function TeamsTab({ teams }: Props) {
       setH2H(h);
     } catch (e) {
       setError("Erreur lors du chargement des équipes.");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -69,8 +73,8 @@ export default function TeamsTab({ teams }: Props) {
           <TeamSelect label="Équipe 1" teams={teams} value={home} onChange={setHome} />
           <TeamSelect label="Équipe 2" teams={teams} value={away} onChange={setAway} />
           <div style={{ alignSelf: "flex-end" }}>
-            <button className="primary" disabled={!home || !away || home === away} onClick={compare}>
-              Comparer
+            <button className="primary" disabled={!home || !away || home === away || loading} onClick={compare}>
+              {loading ? "Chargement…" : "Comparer"}
             </button>
           </div>
         </div>
