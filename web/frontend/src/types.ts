@@ -54,6 +54,10 @@ export interface FixtureItem {
   stadium: string;
   stage: string;
   predictable: boolean;
+  status: string;
+  actual_score: string;
+  predicted_score: string;
+  outcome_correct: boolean | null;
 }
 
 export interface BacktestMetrics {

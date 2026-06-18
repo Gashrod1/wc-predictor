@@ -21,6 +21,44 @@ function groupKey(f: FixtureItem): string {
   return STAGE_LABELS[f.stage] ?? f.stage;
 }
 
+function FixtureResult({ f }: { f: FixtureItem }) {
+  const correct = f.outcome_correct;
+
+  if (f.status === "Joué" && f.actual_score) {
+    return (
+      <div className="fixture-result">
+        <div
+          className={`fixture-score-block ${correct === true ? "result-correct" : correct === false ? "result-wrong" : ""}`}
+        >
+          <span className="fixture-score actual-score">{f.actual_score}</span>
+          <span className="fixture-score-label">réel</span>
+        </div>
+        {f.predicted_score && (
+          <div className="fixture-score-block">
+            <span className="fixture-score predicted-score">{f.predicted_score}</span>
+            <span className="fixture-score-label">prédit</span>
+          </div>
+        )}
+        {correct !== null && (
+          <span className={`badge ${correct ? "ok" : "no"}`}>
+            {correct ? "✓" : "✗"}
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  if (f.status === "En direct") {
+    return <span className="badge live">En direct</span>;
+  }
+
+  if (f.predictable) {
+    return <span className="badge ok">Prédire →</span>;
+  }
+
+  return <span className="meta">à venir</span>;
+}
+
 export default function FixturesTab({ onPredict }: Props) {
   const [fixtures, setFixtures] = useState<FixtureItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,29 +90,37 @@ export default function FixturesTab({ onPredict }: Props) {
       {groups.map((g) => (
         <div key={g.title}>
           <h2 className="fixture-group-title">{g.title}</h2>
-          {g.items.map((f, idx) => (
-            <div
-              key={`${f.date}-${f.time}-${idx}`}
-              className={`fixture ${f.predictable ? "" : "disabled"}`}
-              onClick={() =>
-                f.predictable && onPredict(f.home_team, f.away_team, f.stage)
-              }
-            >
-              <div>
-                <div className="teams">
-                  {f.home_team} vs {f.away_team}
+          {g.items.map((f, idx) => {
+            const played = f.status === "Joué";
+            const clickable = f.predictable && !played;
+            const tbd = !f.predictable && !played;
+            return (
+              <div
+                key={`${f.date}-${f.time}-${idx}`}
+                className={`fixture ${tbd ? "disabled" : ""} ${
+                  played && f.outcome_correct === true
+                    ? "fixture-correct"
+                    : played && f.outcome_correct === false
+                      ? "fixture-wrong"
+                      : ""
+                }`}
+                style={{ cursor: clickable ? "pointer" : "default" }}
+                onClick={() =>
+                  clickable && onPredict(f.home_team, f.away_team, f.stage)
+                }
+              >
+                <div>
+                  <div className="teams">
+                    {f.home_team} vs {f.away_team}
+                  </div>
+                  <div className="meta">
+                    {f.date} {f.time} · {f.city || "—"} {f.stadium ? `· ${f.stadium}` : ""}
+                  </div>
                 </div>
-                <div className="meta">
-                  {f.date} {f.time} · {f.city || "—"} {f.stadium ? `· ${f.stadium}` : ""}
-                </div>
+                <FixtureResult f={f} />
               </div>
-              {f.predictable ? (
-                <span className="badge ok">Prédire →</span>
-              ) : (
-                <span className="meta">à venir</span>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       ))}
     </div>

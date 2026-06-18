@@ -69,6 +69,10 @@ def load_fixtures() -> list[dict[str, object]]:
                 "stadium": row.get("stadium", ""),
                 "stage": stage,
                 "predictable": predictable,
+                "status": row.get("status", ""),
+                "actual_score": row.get("result", ""),
+                "predicted_score": "",
+                "outcome_correct": None,
             }
         )
     return fixtures

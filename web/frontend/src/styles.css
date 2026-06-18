@@ -234,8 +234,17 @@ button.primary:disabled {
 }
 
 .fixture.disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
+  opacity: 0.5;
+  cursor: default;
+}
+
+
+.fixture.fixture-correct {
+  border-color: rgba(0, 230, 118, 0.45);
+}
+
+.fixture.fixture-wrong {
+  border-color: rgba(255, 82, 82, 0.45);
 }
 
 .fixture .teams {
@@ -245,6 +254,60 @@ button.primary:disabled {
 .fixture .meta {
   font-size: 13px;
   color: var(--text-dim);
+}
+
+.fixture-result {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.fixture-score-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.fixture-score {
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.fixture-score-label {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.actual-score {
+  color: var(--text);
+}
+
+.predicted-score {
+  color: var(--text-dim);
+}
+
+.result-correct .actual-score {
+  color: var(--accent);
+}
+
+.result-wrong .actual-score {
+  color: var(--away);
+}
+
+.badge.live {
+  background: rgba(255, 179, 0, 0.15);
+  color: var(--draw);
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
 }
 
 table {

@@ -177,8 +177,29 @@ def get_h2h(home: str, away: str) -> H2HResponse:
 
 @app.get("/api/fixtures", response_model=list[FixtureItem])
 def get_fixtures() -> list[FixtureItem]:
-    """Return the WC2026 fixtures (without actual results)."""
-    return [FixtureItem(**f) for f in load_fixtures()]
+    """Return the WC2026 fixtures with prediction and result for played matches."""
+    predictor: EnsemblePredictor = _state["predictor"]  # type: ignore[assignment]
+    result = []
+    for f in load_fixtures():
+        if f["status"] == "Joué" and f["predictable"] and f["actual_score"]:
+            try:
+                home = resolve_team_name(f["home_team"])
+                away = resolve_team_name(f["away_team"])
+                pred = predictor.predict(home, away, context={"stage": f["stage"]})
+                f["predicted_score"] = pred.most_likely_score
+                parts = str(f["actual_score"]).split("-")
+                hg, ag = int(parts[0]), int(parts[1])
+                if hg > ag:
+                    actual_winner = "home"
+                elif hg < ag:
+                    actual_winner = "away"
+                else:
+                    actual_winner = "draw"
+                f["outcome_correct"] = pred.predicted_winner == actual_winner
+            except Exception:
+                pass
+        result.append(FixtureItem(**f))
+    return result
 
 
 @app.get("/api/backtest/{tournament}", response_model=BacktestMetrics)
