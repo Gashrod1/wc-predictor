@@ -83,7 +83,9 @@ def run_backtest(model: object, matches_df: pd.DataFrame) -> dict[str, float]:
     y_pred_arr = np.array(y_pred_proba)
 
     brier = float(np.mean(np.sum((y_pred_arr - y_true_arr) ** 2, axis=1) / 3.0))
-    ll = float(log_loss(y_true_arr, y_pred_arr, labels=[0, 1, 2]))
+    # Convert one-hot y_true back to integer labels for log_loss compatibility
+    y_true_labels = np.argmax(y_true_arr, axis=1)
+    ll = float(log_loss(y_true_labels, y_pred_arr, labels=[0, 1, 2]))
 
     return {
         "outcome_accuracy": float(np.mean(outcome_correct)),
