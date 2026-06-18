@@ -235,13 +235,13 @@ def test_build_match_features_with_squad_loader():
 
 
 def test_build_match_features_without_squad_loader_still_works():
-    """Without squad_loader, result is the original 12 features."""
+    """Without squad_loader, result is the original 15 base features."""
     from src.data.loader import load_historical_matches, load_elo_ratings
     from src.data.features import build_match_features
     df = load_historical_matches()
     elo = load_elo_ratings()
     features = build_match_features("France", "Brazil", elo, df)
-    assert len(features) == 12
+    assert len(features) == 15
 
 
 def test_squad_features_failure_does_not_crash():

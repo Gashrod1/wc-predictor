@@ -63,6 +63,8 @@ class EnsemblePredictor:
             weight model has been fitted.
         squad_loader: Optional SquadLoader instance for squad-based features.
         chemistry_analyzer: Optional ChemistryAnalyzer instance.
+        elo_trends: Optional dict mapping team name to ELO trend value (change
+            over recent days). Passed through to build_match_features.
         historical_df: Historical match data for feature engineering. If None,
             loads all available data via load_historical_matches(). Pass a
             filtered DataFrame (e.g. excluding the target tournament) to avoid
@@ -77,6 +79,7 @@ class EnsemblePredictor:
         xgb_weight: float = _XGB_WEIGHT,
         squad_loader: Any = None,
         chemistry_analyzer: Any = None,
+        elo_trends: dict[str, float] | None = None,
         historical_df: pd.DataFrame | None = None,
     ) -> None:
         self.dc_model = dc_model
@@ -88,6 +91,7 @@ class EnsemblePredictor:
         self._weight_model: Any = None  # set by fit_weights()
         self._squad_loader: Any = squad_loader
         self._chemistry_analyzer: Any = chemistry_analyzer
+        self._elo_trends: dict[str, float] | None = elo_trends
 
     def fit_weights(
         self,
@@ -218,6 +222,7 @@ class EnsemblePredictor:
             stage=stage,
             squad_loader=self._squad_loader,
             chemistry_analyzer=self._chemistry_analyzer,
+            elo_trends=self._elo_trends,
         )
         xgb_probs = self.xgb_model.predict_proba(features)
         blended = self._blend(dc_probs, xgb_probs)

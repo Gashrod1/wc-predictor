@@ -4,24 +4,24 @@ from __future__ import annotations
 from pathlib import Path
 
 import joblib
+import pandas as pd
 
-from src.data.loader import load_historical_matches, load_elo_ratings, resolve_team_name
+from src.data.loader import (
+    load_historical_matches,
+    load_elo_ratings,
+    load_elo_trends,
+    resolve_team_name,
+)
 from src.models.dixon_coles import DixonColesModel
 from src.models.ensemble import EnsemblePredictor, PredictionResult
 from src.models.xgboost_classifier import XGBoostOutcomeClassifier
 
 _SAVED_DIR = Path(__file__).parent.parent.parent / "models" / "saved"
+_DATA_DIR = Path(__file__).parent.parent.parent / "data"
 
 
 def load_or_train_predictor() -> EnsemblePredictor:
-    """Load a saved ensemble predictor (with squad/chemistry), or train from scratch.
-
-    Squad and chemistry analyzers are always instantiated fresh — they load
-    their own caches on demand and do not need serialisation.
-
-    Returns:
-        Ready-to-use EnsemblePredictor.
-    """
+    """Load a saved ensemble predictor (with squad/chemistry), or train from scratch."""
     from src.data.squad_loader import SquadLoader
     from src.data.chemistry import ChemistryAnalyzer
 
@@ -34,11 +34,14 @@ def load_or_train_predictor() -> EnsemblePredictor:
     else:
         dc_model, xgb_model = _train_models()
 
+    elo_trends = load_elo_trends()
+
     return EnsemblePredictor(
         dc_model=dc_model,
         xgb_model=xgb_model,
         squad_loader=SquadLoader(),
         chemistry_analyzer=ChemistryAnalyzer(),
+        elo_trends=elo_trends,
     )
 
 
@@ -48,18 +51,7 @@ def predict_match(
     stage: str = "group",
     neutral: bool = True,
 ) -> PredictionResult:
-    """Predict a single match outcome using the ensemble.
-
-    Args:
-        home_team: First team name (French aliases resolved automatically).
-        away_team: Second team name.
-        stage: Match stage (e.g. 'group', 'semi_final', 'final').
-        neutral: If True (default), no home advantage applied — correct for all
-            World Cup matches except USA/Canada/Mexico games on their own soil.
-
-    Returns:
-        PredictionResult with all prediction details.
-    """
+    """Predict a single match outcome using the ensemble."""
     predictor = load_or_train_predictor()
     return predictor.predict(
         resolve_team_name(home_team),
@@ -69,31 +61,36 @@ def predict_match(
 
 
 def _train_models() -> tuple[DixonColesModel, XGBoostOutcomeClassifier]:
-    """Train both models from historical data (without squad features).
-
-    Squad features are NOT used during historical training because we do not
-    have reliable squad data for 2018/2022 via API. The squad columns will be
-    absent from the training DataFrame; XGBoost handles this via .get(f, 0.0).
-
-    Returns:
-        Fitted (DixonColesModel, XGBoostOutcomeClassifier) tuple.
-    """
-    import pandas as pd
+    """Train both models from historical + competitive data."""
     from src.data.features import build_match_features
 
-    df = load_historical_matches()
+    wc_df = load_historical_matches()
     elo = load_elo_ratings()
+    elo_trends = load_elo_trends()
 
+    # Dixon-Coles: trained on WC matches only (score distribution is WC-specific)
     dc_model = DixonColesModel()
-    dc_model.fit(df)
+    dc_model.fit(wc_df)
+
+    # XGBoost: use ALL competitive matches for richer form/H2H features
+    comp_path = _DATA_DIR / "historical" / "international_competitive.csv"
+    try:
+        comp_df = pd.read_csv(comp_path, parse_dates=["date"])
+        # Combine WC + competitive, deduplicate
+        all_df = pd.concat([wc_df, comp_df], ignore_index=True).drop_duplicates(
+            subset=["date", "home_team", "away_team"]
+        ).sort_values("date").reset_index(drop=True)
+    except Exception:
+        all_df = wc_df
 
     feature_rows = []
     labels = []
-    for _, row in df.iterrows():
+    for _, row in all_df.iterrows():
         feats = build_match_features(
-            row["home_team"], row["away_team"], elo, df,
-            stage=row["stage"],
-            squad_loader=None,          # no squad data for historical training
+            row["home_team"], row["away_team"], elo, all_df,
+            stage=str(row.get("stage", "group")),
+            elo_trends=elo_trends,
+            squad_loader=None,
             chemistry_analyzer=None,
         )
         feature_rows.append(feats)
@@ -108,7 +105,11 @@ def _train_models() -> tuple[DixonColesModel, XGBoostOutcomeClassifier]:
     y = pd.Series(labels)
 
     xgb_model = XGBoostOutcomeClassifier()
-    xgb_model.fit(X, y)
+    # With 14k+ matches, run hyperparameter tuning
+    print("  Running XGBoost hyperparameter search (TimeSeriesSplit, 40 iterations)...")
+    best_params = xgb_model.tune_hyperparameters(X, y, n_iter=40)
+    if best_params:
+        print(f"  Best params: {best_params}")
 
     _SAVED_DIR.mkdir(parents=True, exist_ok=True)
     joblib.dump(dc_model, _SAVED_DIR / "dixon_coles.joblib")

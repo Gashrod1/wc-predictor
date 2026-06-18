@@ -18,6 +18,8 @@ _FEATURE_COLS = [
     "home_chemistry_score", "away_chemistry_score",
     "home_pass_network_density", "away_pass_network_density",
     "chemistry_diff",
+    # ELO trend / momentum features (0.0 when trend data unavailable)
+    "elo_trend_home", "elo_trend_away", "elo_trend_diff",
 ]
 
 
@@ -50,6 +52,77 @@ class XGBoostOutcomeClassifier:
         self._feature_names = [c for c in _FEATURE_COLS if c in X.columns]
         X_arr = X[self._feature_names].values
         self._model.fit(X_arr, y.values)
+
+    def tune_hyperparameters(self, X: pd.DataFrame, y: pd.Series, n_iter: int = 40) -> dict:
+        """Find optimal hyperparameters via randomised search with time-series CV.
+
+        Uses 3-fold TimeSeriesSplit to prevent data leakage (always trains on
+        older data, tests on newer). Fits the tuned model on the full dataset
+        after search. Only makes sense with 500+ training samples.
+
+        Args:
+            X: Feature DataFrame.
+            y: Target labels (0=away, 1=draw, 2=home).
+            n_iter: Number of random parameter combinations to try.
+
+        Returns:
+            Best hyperparameter dict found.
+        """
+        from sklearn.model_selection import RandomizedSearchCV, TimeSeriesSplit
+
+        if len(X) < 300:
+            # Too little data for reliable cross-validation — use defaults
+            self.fit(X, y)
+            return {}
+
+        feature_names = [c for c in _FEATURE_COLS if c in X.columns]
+        X_arr = X[feature_names].fillna(0.0).values
+        y_arr = y.values
+
+        param_dist = {
+            "n_estimators":      [300, 500, 700, 1000],
+            "max_depth":         [3, 4, 5, 6],
+            "learning_rate":     [0.01, 0.03, 0.05, 0.08, 0.1],
+            "subsample":         [0.7, 0.8, 0.9, 1.0],
+            "colsample_bytree":  [0.6, 0.7, 0.8, 1.0],
+            "min_child_weight":  [1, 3, 5, 7],
+            "reg_alpha":         [0.0, 0.1, 0.5, 1.0],
+            "reg_lambda":        [1.0, 2.0, 5.0],
+            "gamma":             [0.0, 0.1, 0.3],
+        }
+
+        base = XGBClassifier(
+            eval_metric="mlogloss",
+            random_state=42,
+            verbosity=0,
+        )
+
+        tscv = TimeSeriesSplit(n_splits=3)
+        search = RandomizedSearchCV(
+            base,
+            param_dist,
+            n_iter=n_iter,
+            cv=tscv,
+            scoring="neg_log_loss",
+            n_jobs=-1,
+            random_state=42,
+            verbose=0,
+        )
+        search.fit(X_arr, y_arr)
+        best = search.best_params_
+
+        # Re-fit with best params + Platt calibration on full data
+        tuned_base = XGBClassifier(
+            **best,
+            eval_metric="mlogloss",
+            random_state=42,
+            verbosity=0,
+        )
+        self._feature_names = feature_names
+        self._model = CalibratedClassifierCV(tuned_base, method="sigmoid", cv=3)
+        self._model.fit(X_arr, y_arr)
+
+        return best
 
     def predict_proba(self, features: dict[str, float]) -> dict[str, float]:
         """Return win/draw/loss probabilities for a single match.

@@ -18,6 +18,7 @@ def build_match_features(
     n_h2h: int = 8,
     squad_loader: object | None = None,
     chemistry_analyzer: object | None = None,
+    elo_trends: dict[str, float] | None = None,
 ) -> dict[str, float]:
     """Build the feature vector for a match prediction.
 
@@ -31,9 +32,11 @@ def build_match_features(
         n_h2h: Number of head-to-head matches to use.
         squad_loader: Optional SquadLoader instance for squad features.
         chemistry_analyzer: Optional ChemistryAnalyzer instance for chemistry features.
+        elo_trends: Optional dict mapping team name to ELO trend (change over recent
+            days). Defaults to 0.0 per team when not provided.
 
     Returns:
-        Dictionary with 12 base feature keys, plus optional squad/chemistry keys.
+        Dictionary with 15 base feature keys, plus optional squad/chemistry keys.
     """
     home_elo = elo_ratings.get(home_team, _DEFAULT_ELO)
     away_elo = elo_ratings.get(away_team, _DEFAULT_ELO)
@@ -55,6 +58,11 @@ def build_match_features(
         "h2h_home_wins": h2h["home_win_pct"],
         "h2h_avg_goals": h2h["avg_goals"],
         "is_knockout": 1 if stage in _KNOCKOUT_STAGES else 0,
+        "elo_trend_home": float(elo_trends.get(home_team, 0.0)) if elo_trends else 0.0,
+        "elo_trend_away": float(elo_trends.get(away_team, 0.0)) if elo_trends else 0.0,
+        "elo_trend_diff": (
+            float(elo_trends.get(home_team, 0.0)) - float(elo_trends.get(away_team, 0.0))
+        ) if elo_trends else 0.0,
     }
 
     # --- Optional squad features ---
