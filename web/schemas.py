@@ -92,3 +92,24 @@ class BacktestMetrics(BaseModel):
     top3_score_accuracy: float
     brier_score: float
     log_loss: float
+
+
+class BacktestMatchDetail(BaseModel):
+    """Prediction vs actual for a single match."""
+
+    date: str
+    home_team: str
+    away_team: str
+    predicted_score: str
+    actual_score: str
+    predicted_winner: str
+    actual_winner: str
+    outcome_correct: bool
+    score_correct: bool
+
+
+class BacktestDetails(BaseModel):
+    """Response for GET /api/backtest/{tournament}/details."""
+
+    tournament: str
+    matches: list[BacktestMatchDetail]

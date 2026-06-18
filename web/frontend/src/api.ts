@@ -5,6 +5,7 @@ import type {
   H2HResponse,
   FixtureItem,
   BacktestMetrics,
+  BacktestDetails,
 } from "./types";
 
 async function getJSON<T>(url: string): Promise<T> {
@@ -47,4 +48,8 @@ export function fetchFixtures(): Promise<FixtureItem[]> {
 
 export function fetchBacktest(tournament: string): Promise<BacktestMetrics> {
   return getJSON<BacktestMetrics>(`/api/backtest/${tournament}`);
+}
+
+export function fetchBacktestDetails(tournament: string): Promise<BacktestDetails> {
+  return getJSON<BacktestDetails>(`/api/backtest/${tournament}/details`);
 }

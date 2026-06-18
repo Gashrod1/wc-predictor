@@ -63,3 +63,20 @@ export interface BacktestMetrics {
   brier_score: number;
   log_loss: number;
 }
+
+export interface BacktestMatchDetail {
+  date: string;
+  home_team: string;
+  away_team: string;
+  predicted_score: string;
+  actual_score: string;
+  predicted_winner: string;
+  actual_winner: string;
+  outcome_correct: boolean;
+  score_correct: boolean;
+}
+
+export interface BacktestDetails {
+  tournament: string;
+  matches: BacktestMatchDetail[];
+}
