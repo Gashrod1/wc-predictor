@@ -11,6 +11,13 @@ _FEATURE_COLS = [
     "home_form_goals_scored", "home_form_goals_conceded", "home_form_xg",
     "away_form_goals_scored", "away_form_goals_conceded", "away_form_xg",
     "h2h_home_wins", "h2h_avg_goals", "is_knockout",
+    # Squad features (optional — 0.0 when squad data unavailable)
+    "squad_avg_club_elo", "squad_pct_top5_league", "squad_avg_age",
+    "squad_market_value_m", "squad_n_in_form", "squad_elo_diff",
+    # Chemistry features (optional — 0.0 when chemistry data unavailable)
+    "home_chemistry_score", "away_chemistry_score",
+    "home_pass_network_density", "away_pass_network_density",
+    "chemistry_diff",
 ]
 
 

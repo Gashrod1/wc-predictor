@@ -16,8 +16,10 @@ def build_match_features(
     stage: str = "group",
     n_form: int = 5,
     n_h2h: int = 8,
+    squad_loader: object | None = None,
+    chemistry_analyzer: object | None = None,
 ) -> dict[str, float]:
-    """Build the 12-feature vector for a match prediction.
+    """Build the feature vector for a match prediction.
 
     Args:
         home_team: Name of the home/first team.
@@ -27,9 +29,11 @@ def build_match_features(
         stage: Match stage string (e.g. 'group', 'semi_final').
         n_form: Number of recent matches to use for form.
         n_h2h: Number of head-to-head matches to use.
+        squad_loader: Optional SquadLoader instance for squad features.
+        chemistry_analyzer: Optional ChemistryAnalyzer instance for chemistry features.
 
     Returns:
-        Dictionary with exactly 12 feature keys.
+        Dictionary with 12 base feature keys, plus optional squad/chemistry keys.
     """
     home_elo = elo_ratings.get(home_team, _DEFAULT_ELO)
     away_elo = elo_ratings.get(away_team, _DEFAULT_ELO)
@@ -38,7 +42,7 @@ def build_match_features(
     away_form = _team_form(away_team, historical_df, n_form)
     h2h = _head_to_head(home_team, away_team, historical_df, n_h2h)
 
-    return {
+    features: dict[str, float] = {
         "elo_diff": home_elo - away_elo,
         "elo_home": home_elo,
         "elo_away": away_elo,
@@ -52,6 +56,41 @@ def build_match_features(
         "h2h_avg_goals": h2h["avg_goals"],
         "is_knockout": 1 if stage in _KNOCKOUT_STAGES else 0,
     }
+
+    # --- Optional squad features ---
+    if squad_loader is not None:
+        try:
+            sq_feats = squad_loader.get_match_squad_features(home_team, away_team)
+            features.update(sq_feats)
+
+            # --- Optional chemistry features (requires squad data) ---
+            if chemistry_analyzer is not None:
+                try:
+                    home_sq = squad_loader.get_squad(home_team)
+                    away_sq = squad_loader.get_squad(away_team)
+                    chem_feats = chemistry_analyzer.get_chemistry_features(
+                        home_team, away_team, home_sq, away_sq
+                    )
+                    features.update(chem_feats)
+                except Exception:
+                    features.update({
+                        "home_chemistry_score": 0.0,
+                        "away_chemistry_score": 0.0,
+                        "home_pass_network_density": 0.0,
+                        "away_pass_network_density": 0.0,
+                        "chemistry_diff": 0.0,
+                    })
+        except Exception:
+            features.update({
+                "squad_avg_club_elo": 1850.0,
+                "squad_pct_top5_league": 0.0,
+                "squad_avg_age": 26.0,
+                "squad_market_value_m": 0.0,
+                "squad_n_in_form": 0.0,
+                "squad_elo_diff": 0.0,
+            })
+
+    return features
 
 
 def _team_form(

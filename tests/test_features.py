@@ -209,3 +209,55 @@ def test_confidence_penalised_when_models_diverge():
     )
     assert result_low.model_divergence == 0.0
     assert result_high.model_divergence == 0.5
+
+
+def test_build_match_features_with_squad_loader():
+    """With squad_loader provided, feature dict gains 6 squad keys."""
+    from src.data.loader import load_historical_matches, load_elo_ratings
+    from src.data.squad_loader import SquadLoader
+    from src.data.chemistry import ChemistryAnalyzer
+    from src.data.features import build_match_features
+    df = load_historical_matches()
+    elo = load_elo_ratings()
+    loader = SquadLoader()
+    analyzer = ChemistryAnalyzer()
+    features = build_match_features("France", "Brazil", elo, df,
+                                    squad_loader=loader,
+                                    chemistry_analyzer=analyzer)
+    squad_keys = {
+        "squad_avg_club_elo", "squad_pct_top5_league", "squad_avg_age",
+        "squad_market_value_m", "squad_n_in_form", "squad_elo_diff",
+        "home_chemistry_score", "away_chemistry_score",
+        "home_pass_network_density", "away_pass_network_density",
+        "chemistry_diff",
+    }
+    assert squad_keys.issubset(set(features.keys()))
+
+
+def test_build_match_features_without_squad_loader_still_works():
+    """Without squad_loader, result is the original 12 features."""
+    from src.data.loader import load_historical_matches, load_elo_ratings
+    from src.data.features import build_match_features
+    df = load_historical_matches()
+    elo = load_elo_ratings()
+    features = build_match_features("France", "Brazil", elo, df)
+    assert len(features) == 12
+
+
+def test_squad_features_failure_does_not_crash():
+    """A squad loader that raises must be silently swallowed."""
+    from src.data.loader import load_historical_matches, load_elo_ratings
+    from src.data.features import build_match_features
+
+    class FailingLoader:
+        def get_match_squad_features(self, *a, **kw):
+            raise RuntimeError("simulated failure")
+        def get_squad(self, *a, **kw):
+            raise RuntimeError("simulated failure")
+
+    df = load_historical_matches()
+    elo = load_elo_ratings()
+    features = build_match_features("France", "Brazil", elo, df,
+                                    squad_loader=FailingLoader())
+    # Should still return at least the base 12 features
+    assert len(features) >= 12
