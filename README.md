@@ -56,6 +56,26 @@ Saves models to `models/saved/` (mounted as a Docker volume, persists on host).
 docker compose run --rm app python -m pytest tests/ -v
 ```
 
+## Web Interface
+
+A dark-themed web app (FastAPI + React/Vite) exposes prediction, the 2026 calendar, a team comparator, and the backtesting dashboard.
+
+```bash
+docker compose up api web
+```
+
+Then open **http://localhost:5173**.
+
+- **API** runs on http://localhost:8000 (FastAPI, auto-docs at `/docs`).
+- Models are trained/loaded **once at API startup** and held in memory.
+- The 2026 calendar reads `data/fixtures/wc2026_fixtures.csv`; actual results are ignored (the model predicts each match). `TBD` knockout placeholders are shown but not predictable.
+
+### Tabs
+1. **Prédire** — pick two teams + stage → winner probabilities, top 5 scores, confidence, model agreement.
+2. **Calendrier 2026** — fixtures by matchday/round; click a match to predict it.
+3. **Équipes** — side-by-side ELO, recent form, and head-to-head.
+4. **Performance** — backtest metrics for WC2018 and WC2022.
+
 ## Models
 
 ### Dixon-Coles (weight: 55%)

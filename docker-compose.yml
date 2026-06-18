@@ -7,3 +7,26 @@ services:
     env_file:
       - .env
     working_dir: /app
+
+  api:
+    build: .
+    command: uvicorn web.api:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+    env_file:
+      - .env
+    working_dir: /app
+
+  web:
+    image: node:20-slim
+    working_dir: /app/web/frontend
+    command: sh -c "npm install && npm run dev -- --host"
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./web/frontend:/app/web/frontend
+    depends_on:
+      - api
