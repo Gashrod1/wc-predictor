@@ -4,6 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
+import pandas as pd
 
 from src.data.features import build_match_features
 from src.data.loader import load_historical_matches, load_elo_ratings
@@ -47,6 +48,10 @@ class EnsemblePredictor:
         xgb_model: Fitted XGBoostOutcomeClassifier instance.
         dc_weight: Weight for Dixon-Coles predictions (default 0.55).
         xgb_weight: Weight for XGBoost predictions (default 0.45).
+        historical_df: Historical match data for feature engineering. If None,
+            loads all available data via load_historical_matches(). Pass a
+            filtered DataFrame (e.g. excluding the target tournament) to avoid
+            data leakage during backtesting.
     """
 
     def __init__(
@@ -55,13 +60,14 @@ class EnsemblePredictor:
         xgb_model: XGBoostOutcomeClassifier,
         dc_weight: float = _DC_WEIGHT,
         xgb_weight: float = _XGB_WEIGHT,
+        historical_df: pd.DataFrame | None = None,
     ) -> None:
         self.dc_model = dc_model
         self.xgb_model = xgb_model
         self.dc_weight = dc_weight
         self.xgb_weight = xgb_weight
         self._elo_ratings = load_elo_ratings()
-        self._historical_df = load_historical_matches()
+        self._historical_df = historical_df if historical_df is not None else load_historical_matches()
 
     def predict(
         self, home_team: str, away_team: str, context: dict[str, object] | None = None

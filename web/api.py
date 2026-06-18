@@ -215,7 +215,7 @@ def get_backtest(tournament: str) -> BacktestMetrics:
     xgb_model = XGBoostOutcomeClassifier()
     xgb_model.fit(pd.DataFrame(rows), pd.Series(labels))
 
-    ensemble = EnsemblePredictor(dc_model=dc_model, xgb_model=xgb_model)
+    ensemble = EnsemblePredictor(dc_model=dc_model, xgb_model=xgb_model, historical_df=train_df)
     metrics = run_backtest(ensemble, target_df)
 
     result = BacktestMetrics(**metrics)
