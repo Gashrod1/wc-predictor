@@ -64,6 +64,16 @@ A dark-themed web app (FastAPI + React/Vite) exposes prediction, the 2026 calend
 docker compose up api web
 ```
 
+To reload the web interface : 
+
+ Ce qui a changé      │                                Commandes nécessaires                                 │
+  ├──────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
+  │ Backend Python seulement │ git pull + docker compose up -d --build                                              │
+  ├──────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
+  │ Frontend seulement       │ git pull + docker run … npm run build + docker compose up -d (pas besoin de --build) │
+  ├──────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
+  │ Les deux                 │ git pull + npm run build + docker compose up -d --build    
+
 Then open **http://localhost:5173**.
 
 - **API** runs on http://localhost:8000 (FastAPI, auto-docs at `/docs`).
