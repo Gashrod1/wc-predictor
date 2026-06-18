@@ -18,6 +18,11 @@ def _make_confidence_bar(confidence: float, width: int = 10) -> str:
     return "█" * filled + "░" * (width - filled)
 
 
+def _winner_name(scenario: str, home: str, away: str) -> str:
+    """Translate 'home'/'draw'/'away' to a readable team name."""
+    return {"home": home, "draw": "Match nul", "away": away}.get(scenario, scenario)
+
+
 def cmd_predict(args: argparse.Namespace) -> None:
     """Run a match prediction and display results."""
     from src.prediction.predictor import predict_match
@@ -51,11 +56,27 @@ def cmd_predict(args: argparse.Namespace) -> None:
         lines.append(f"    {i}. {s['score']:<6}→  {s['probability']*100:.1f}%")
 
     conf_bar = _make_confidence_bar(result.confidence)
-    agreement_icon = "[green]✓[/green]" if result.model_agreement else "[yellow]✗[/yellow]"
+
+    # --- Accord / Désaccord des modèles ---
+    div = result.model_divergence
+    if div > 0.20:
+        # Show both model scenarios side by side
+        lines += [
+            "",
+            f"  [yellow]⚠ Les modèles divergent (écart {div*100:.0f}%)[/yellow]",
+            f"  Dixon-Coles : [cyan]{_winner_name(result.scenario_dc, home, away)}[/cyan]",
+            f"  XGBoost     : [magenta]{_winner_name(result.scenario_xgb, home, away)}[/magenta]",
+        ]
+    elif result.model_agreement:
+        lines.append("")
+        lines.append("  [green]✓ Accord des modèles[/green]")
+    else:
+        lines.append("")
+        lines.append("  [yellow]✗ Désaccord des modèles[/yellow]")
+
     lines += [
         "",
         f"  Confiance : {conf_bar} {result.confidence*100:.0f}%",
-        f"  Accord des modèles : {agreement_icon}",
     ]
 
     content = "\n".join(lines)
@@ -72,6 +93,9 @@ def cmd_predict(args: argparse.Namespace) -> None:
             "top_scores": result.top_scores,
             "confidence": result.confidence,
             "model_agreement": result.model_agreement,
+            "model_divergence": result.model_divergence,
+            "scenario_dc": result.scenario_dc,
+            "scenario_xgb": result.scenario_xgb,
         }
         console.print_json(json.dumps(output, indent=2))
 
