@@ -39,7 +39,7 @@ def test_predict_score_distribution_shape(sample_matches):
     model = DixonColesModel()
     model.fit(sample_matches)
     matrix = model.predict_score_distribution("France", "Brazil")
-    assert matrix.shape == (8, 8)
+    assert matrix.shape == (6, 6)
 
 
 def test_predict_score_distribution_sums_to_one(sample_matches):
@@ -73,3 +73,33 @@ def test_unknown_team_fallback(sample_matches):
     model.fit(sample_matches)
     probs = model.predict_outcome_probabilities("Atlantis", "Brazil")
     assert probs["home_win"] + probs["draw"] + probs["away_win"] > 0.99
+
+
+def test_no_score_with_total_above_7(sample_matches):
+    """No score in top 5 should have home + away goals > 7."""
+    model = DixonColesModel()
+    model.fit(sample_matches)
+    top = model.predict_top_scores("France", "Brazil", top_n=5)
+    for s in top:
+        parts = s["score"].split("-")
+        total = int(parts[0]) + int(parts[1])
+        assert total <= 7, f"Score {s['score']} exceeds max total of 7"
+
+
+def test_no_lambda_above_3_2(sample_matches):
+    """Expected goals (lambda) must not exceed 3.2 after constraints."""
+    from src.utils.score_constraints import _LAMBDA_MAX
+    model = DixonColesModel()
+    model.fit(sample_matches)
+    # Give the model a very skewed match-up by using mean params for an unknown team
+    lambda_h, mu_a = model._get_lambdas("France", "PaperTeam_Unknown")
+    assert lambda_h <= _LAMBDA_MAX + 1e-6
+    assert mu_a <= _LAMBDA_MAX + 1e-6
+
+
+def test_score_distribution_is_6x6(sample_matches):
+    """Matrix must be 6×6 (MAX_GOALS=6)."""
+    model = DixonColesModel()
+    model.fit(sample_matches)
+    matrix = model.predict_score_distribution("France", "Brazil")
+    assert matrix.shape == (6, 6)

@@ -9,8 +9,10 @@ import pandas as pd
 from scipy.optimize import minimize
 from scipy.stats import poisson
 
+from src.utils.score_constraints import clip_lambda, shrink_to_prior, zero_high_scoring_cells
 
-_MAX_GOALS = 8
+
+_MAX_GOALS = 6
 _XI = 0.0065  # temporal decay half-life ~300 days
 
 
@@ -136,7 +138,12 @@ class DixonColesModel:
         self.rho = float(params[2 * n + 1])
 
     def _get_lambdas(self, home_team: str, away_team: str) -> tuple[float, float]:
-        """Compute expected goals for both teams using fitted parameters."""
+        """Compute expected goals for both teams, clipped and shrunk to CdM priors.
+
+        Applies two safety layers:
+        1. clip_lambda — hard bounds from observed CdM lambdas
+        2. shrink_to_prior — 15% pull towards historical CdM averages
+        """
         mean_attack = float(np.mean(list(self.attack_params.values()))) if self.attack_params else 0.0
         mean_defense = float(np.mean(list(self.defense_params.values()))) if self.defense_params else 0.0
 
@@ -147,7 +154,14 @@ class DixonColesModel:
 
         lambda_h = np.exp(atk_h - def_a + np.log(self.home_advantage))
         mu_a = np.exp(atk_a - def_h)
-        return float(lambda_h), float(mu_a)
+
+        # Apply score realism constraints
+        lambda_h = clip_lambda(float(lambda_h))
+        mu_a = clip_lambda(float(mu_a))
+        lambda_h = shrink_to_prior(lambda_h, prior=1.31)
+        mu_a = shrink_to_prior(mu_a, prior=1.02)
+
+        return lambda_h, mu_a
 
     def predict_score_distribution(
         self, home_team: str, away_team: str
@@ -174,9 +188,7 @@ class DixonColesModel:
                     p *= _tau(i, j, lambda_h, mu_a, self.rho)
                 matrix[i, j] = p
 
-        total = matrix.sum()
-        if total > 0:
-            matrix /= total
+        matrix = zero_high_scoring_cells(matrix, max_total=7)
         return matrix
 
     def predict_top_scores(
