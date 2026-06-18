@@ -154,6 +154,8 @@ class EnsemblePredictor:
         features = build_match_features(
             home_team, away_team, self._elo_ratings, self._historical_df,
             stage=str(stage),
+            squad_loader=self._squad_loader,
+            chemistry_analyzer=self._chemistry_analyzer,
         )
         xgb_probs = self.xgb_model.predict_proba(features)
 

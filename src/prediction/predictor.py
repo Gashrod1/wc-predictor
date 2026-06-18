@@ -14,11 +14,17 @@ _SAVED_DIR = Path(__file__).parent.parent.parent / "models" / "saved"
 
 
 def load_or_train_predictor() -> EnsemblePredictor:
-    """Load a saved ensemble predictor, or train one from scratch if not found.
+    """Load a saved ensemble predictor (with squad/chemistry), or train from scratch.
+
+    Squad and chemistry analyzers are always instantiated fresh — they load
+    their own caches on demand and do not need serialisation.
 
     Returns:
         Ready-to-use EnsemblePredictor.
     """
+    from src.data.squad_loader import SquadLoader
+    from src.data.chemistry import ChemistryAnalyzer
+
     dc_path = _SAVED_DIR / "dixon_coles.joblib"
     xgb_path = _SAVED_DIR / "xgboost.joblib"
 
@@ -28,7 +34,12 @@ def load_or_train_predictor() -> EnsemblePredictor:
     else:
         dc_model, xgb_model = _train_models()
 
-    return EnsemblePredictor(dc_model=dc_model, xgb_model=xgb_model)
+    return EnsemblePredictor(
+        dc_model=dc_model,
+        xgb_model=xgb_model,
+        squad_loader=SquadLoader(),
+        chemistry_analyzer=ChemistryAnalyzer(),
+    )
 
 
 def predict_match(
@@ -39,7 +50,7 @@ def predict_match(
     """Predict a single match outcome using the ensemble.
 
     Args:
-        home_team: Home team name.
+        home_team: Home team name (French aliases resolved automatically).
         away_team: Away team name.
         stage: Match stage (e.g. 'group', 'semi_final', 'final').
 
@@ -55,7 +66,15 @@ def predict_match(
 
 
 def _train_models() -> tuple[DixonColesModel, XGBoostOutcomeClassifier]:
-    """Train both models from historical data and save them."""
+    """Train both models from historical data (without squad features).
+
+    Squad features are NOT used during historical training because we do not
+    have reliable squad data for 2018/2022 via API. The squad columns will be
+    absent from the training DataFrame; XGBoost handles this via .get(f, 0.0).
+
+    Returns:
+        Fitted (DixonColesModel, XGBoostOutcomeClassifier) tuple.
+    """
     import pandas as pd
     from src.data.features import build_match_features
 
@@ -69,7 +88,10 @@ def _train_models() -> tuple[DixonColesModel, XGBoostOutcomeClassifier]:
     labels = []
     for _, row in df.iterrows():
         feats = build_match_features(
-            row["home_team"], row["away_team"], elo, df, stage=row["stage"]
+            row["home_team"], row["away_team"], elo, df,
+            stage=row["stage"],
+            squad_loader=None,          # no squad data for historical training
+            chemistry_analyzer=None,
         )
         feature_rows.append(feats)
         if row["home_goals"] > row["away_goals"]:
