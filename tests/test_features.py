@@ -68,3 +68,52 @@ def test_build_match_features_unknown_team_uses_defaults():
     elo = load_elo_ratings()
     features = build_match_features("Atlantis", "Brazil", elo, df)
     assert isinstance(features["elo_home"], float)
+
+
+from src.models.xgboost_classifier import XGBoostOutcomeClassifier
+import numpy as np
+
+
+def test_xgboost_fit_predict():
+    """Classifier should train and return probabilities summing to 1."""
+    np.random.seed(42)
+    n = 50
+    X = pd.DataFrame({
+        "elo_diff": np.random.randn(n) * 100,
+        "elo_home": np.random.uniform(1800, 2100, n),
+        "elo_away": np.random.uniform(1800, 2100, n),
+        "home_form_goals_scored": np.random.uniform(0.5, 3.0, n),
+        "home_form_goals_conceded": np.random.uniform(0.5, 2.5, n),
+        "home_form_xg": np.random.uniform(0.5, 2.5, n),
+        "away_form_goals_scored": np.random.uniform(0.5, 3.0, n),
+        "away_form_goals_conceded": np.random.uniform(0.5, 2.5, n),
+        "away_form_xg": np.random.uniform(0.5, 2.5, n),
+        "h2h_home_wins": np.random.uniform(0, 1, n),
+        "h2h_avg_goals": np.random.uniform(1.5, 4.0, n),
+        "is_knockout": np.random.randint(0, 2, n),
+    })
+    y = pd.Series(np.random.choice([0, 1, 2], size=n))
+    clf = XGBoostOutcomeClassifier()
+    clf.fit(X, y)
+    features_dict = X.iloc[0].to_dict()
+    probs = clf.predict_proba(features_dict)
+    assert abs(probs["home_win"] + probs["draw"] + probs["away_win"] - 1.0) < 0.01
+
+
+def test_xgboost_feature_importance():
+    """get_feature_importance should return a DataFrame with 'feature' and 'importance'."""
+    np.random.seed(42)
+    n = 50
+    X = pd.DataFrame({k: np.random.randn(n) for k in [
+        "elo_diff", "elo_home", "elo_away",
+        "home_form_goals_scored", "home_form_goals_conceded", "home_form_xg",
+        "away_form_goals_scored", "away_form_goals_conceded", "away_form_xg",
+        "h2h_home_wins", "h2h_avg_goals", "is_knockout",
+    ]})
+    y = pd.Series(np.random.choice([0, 1, 2], size=n))
+    clf = XGBoostOutcomeClassifier()
+    clf.fit(X, y)
+    fi = clf.get_feature_importance()
+    assert "feature" in fi.columns
+    assert "importance" in fi.columns
+    assert len(fi) == 12
