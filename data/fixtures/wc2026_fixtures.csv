@@ -1,0 +1,105 @@
+date,time,matchday,home_team,away_team,city,stadium,status,result
+2026-06-11,21:00,1,Mexico,South Africa,Mexico City,Estadio Azteca,Joué,2-0
+2026-06-12,04:00,1,South Korea,Czech Republic,Guadalajara,Estadio Akron,Joué,2-1
+2026-06-12,21:00,1,Canada,Bosnia & Herzegovina,Toronto,BMO Field,Joué,1-1
+2026-06-13,03:00,1,USA,Paraguay,Inglewood,SoFi Stadium,Joué,4-1
+2026-06-13,21:00,1,Qatar,Switzerland,Santa Clara,Levi's Stadium,Joué,1-1
+2026-06-14,00:00,1,Brazil,Morocco,East Rutherford,MetLife Stadium,Joué,1-1
+2026-06-14,03:00,1,Haiti,Scotland,Boston,Gillette Stadium,Joué,0-1
+2026-06-14,06:00,1,Australia,Türkiye,Vancouver,BC Place,Joué,2-0
+2026-06-14,19:00,1,Germany,Curaçao,Houston,NRG Stadium,Joué,7-1
+2026-06-14,22:00,1,Netherlands,Japan,Arlington,AT&T Stadium,Joué,2-2
+2026-06-15,01:00,1,Ivory Coast,Ecuador,Philadelphia,Lincoln Financial Field,Joué,1-0
+2026-06-15,04:00,1,Sweden,Tunisia,Monterrey,Estadio BBVA,Joué,5-1
+2026-06-15,18:00,1,Spain,Cape Verde Islands,Atlanta,Mercedes-Benz Stadium,Joué,0-0
+2026-06-15,21:00,1,Belgium,Egypt,Seattle,Lumen Field,Joué,1-1
+2026-06-16,00:00,1,Saudi Arabia,Uruguay,Miami Gardens,Hard Rock Stadium,Joué,1-1
+2026-06-16,03:00,1,Iran,New Zealand,Inglewood,SoFi Stadium,Joué,2-2
+2026-06-16,21:00,1,France,Senegal,East Rutherford,MetLife Stadium,Joué,3-1
+2026-06-17,00:00,1,Iraq,Norway,Boston,Gillette Stadium,Joué,1-4
+2026-06-17,03:00,1,Argentina,Algeria,Kansas City,Arrowhead Stadium,Joué,3-0
+2026-06-17,06:00,1,Austria,Jordan,Santa Clara,Levi's Stadium,Joué,3-1
+2026-06-17,19:00,1,Portugal,Congo DR,Houston,NRG Stadium,Joué,1-1
+2026-06-17,22:00,1,England,Croatia,Arlington,AT&T Stadium,Joué,4-2
+2026-06-18,01:00,1,Ghana,Panama,Toronto,BMO Field,Joué,1-0
+2026-06-18,04:00,1,Uzbekistan,Colombia,Mexico City,Estadio Azteca,Joué,1-3
+2026-06-18,18:00,2,Czech Republic,South Africa,Atlanta,Mercedes-Benz Stadium,En direct,1-0
+2026-06-18,21:00,2,Switzerland,Bosnia & Herzegovina,Los Angeles,SoFi Stadium,À jouer,
+2026-06-19,00:00,2,Canada,Qatar,Vancouver,BC Place,À jouer,
+2026-06-19,03:00,2,Mexico,South Korea,Guadalajara,Estadio Akron,À jouer,
+2026-06-19,21:00,2,USA,Australia,Seattle,Lumen Field,À jouer,
+2026-06-20,00:00,2,Scotland,Morocco,Boston,Gillette Stadium,À jouer,
+2026-06-20,02:30,2,Brazil,Haiti,Philadelphia,Lincoln Financial Field,À jouer,
+2026-06-20,05:00,2,Türkiye,Paraguay,San Francisco Bay Area,Levi's Stadium,À jouer,
+2026-06-20,19:00,2,Netherlands,Sweden,Houston,NRG Stadium,À jouer,
+2026-06-20,22:00,2,Germany,Ivory Coast,Toronto,BMO Field,À jouer,
+2026-06-21,02:00,2,Ecuador,Curaçao,Kansas City,Arrowhead Stadium,À jouer,
+2026-06-21,06:00,2,Tunisia,Japan,Monterrey,Estadio BBVA,À jouer,
+2026-06-21,18:00,2,Spain,Saudi Arabia,Atlanta,Mercedes-Benz Stadium,À jouer,
+2026-06-21,21:00,2,Belgium,Iran,Los Angeles,SoFi Stadium,À jouer,
+2026-06-22,00:00,2,Uruguay,Cape Verde Islands,Miami,Hard Rock Stadium,À jouer,
+2026-06-22,03:00,2,New Zealand,Egypt,Vancouver,BC Place,À jouer,
+2026-06-22,19:00,2,Argentina,Austria,Dallas,AT&T Stadium,À jouer,
+2026-06-22,23:00,2,France,Iraq,Philadelphia,Lincoln Financial Field,À jouer,
+2026-06-23,02:00,2,Norway,Senegal,New York New Jersey,MetLife Stadium,À jouer,
+2026-06-23,05:00,2,Jordan,Algeria,San Francisco Bay Area,Levi's Stadium,À jouer,
+2026-06-23,19:00,2,Portugal,Uzbekistan,Houston,NRG Stadium,À jouer,
+2026-06-23,22:00,2,England,Ghana,Boston,Gillette Stadium,À jouer,
+2026-06-24,01:00,2,Panama,Croatia,Toronto,BMO Field,À jouer,
+2026-06-24,04:00,2,Colombia,Congo DR,Guadalajara,Estadio Akron,À jouer,
+2026-06-24,21:00,3,Switzerland,Canada,Vancouver,BC Place,À jouer,
+2026-06-24,21:00,3,Bosnia & Herzegovina,Qatar,Seattle,Lumen Field,À jouer,
+2026-06-25,00:00,3,Morocco,Haiti,Atlanta,Mercedes-Benz Stadium,À jouer,
+2026-06-25,00:00,3,Scotland,Brazil,Miami,Hard Rock Stadium,À jouer,
+2026-06-25,03:00,3,South Africa,South Korea,Monterrey,Estadio BBVA,À jouer,
+2026-06-25,03:00,3,Czech Republic,Mexico,Mexico City,Estadio Azteca,À jouer,
+2026-06-25,22:00,3,Curaçao,Ivory Coast,Philadelphia,Lincoln Financial Field,À jouer,
+2026-06-25,22:00,3,Ecuador,Germany,New York New Jersey,MetLife Stadium,À jouer,
+2026-06-26,01:00,3,Tunisia,Netherlands,Kansas City,Arrowhead Stadium,À jouer,
+2026-06-26,01:00,3,Japan,Sweden,Dallas,AT&T Stadium,À jouer,
+2026-06-26,04:00,3,Paraguay,Australia,San Francisco Bay Area,Levi's Stadium,À jouer,
+2026-06-26,04:00,3,Türkiye,USA,Los Angeles,SoFi Stadium,À jouer,
+2026-06-26,21:00,3,Norway,France,Boston,Gillette Stadium,À jouer,
+2026-06-26,21:00,3,Senegal,Iraq,Toronto,BMO Field,À jouer,
+2026-06-27,02:00,3,Cape Verde Islands,Saudi Arabia,Houston,NRG Stadium,À jouer,
+2026-06-27,02:00,3,Uruguay,Spain,Guadalajara,Estadio Akron,À jouer,
+2026-06-27,05:00,3,Egypt,Iran,Seattle,Lumen Field,À jouer,
+2026-06-27,05:00,3,New Zealand,Belgium,Vancouver,BC Place,À jouer,
+2026-06-27,23:00,3,Croatia,Ghana,Philadelphia,Lincoln Financial Field,À jouer,
+2026-06-27,23:00,3,Panama,England,New York New Jersey,MetLife Stadium,À jouer,
+2026-06-28,01:30,3,Colombia,Portugal,Miami,Hard Rock Stadium,À jouer,
+2026-06-28,01:30,3,Congo DR,Uzbekistan,Atlanta,Mercedes-Benz Stadium,À jouer,
+2026-06-28,04:00,3,Algeria,Austria,Kansas City,Arrowhead Stadium,À jouer,
+2026-06-28,04:00,3,Jordan,Argentina,Dallas,AT&T Stadium,À jouer,
+2026-06-28,21:00,,TBD Home (Round of 32 #1),TBD Away (Round of 32 #1),,,À jouer,
+2026-06-29,19:00,,TBD Home (Round of 32 #2),TBD Away (Round of 32 #2),,,À jouer,
+2026-06-29,22:30,,TBD Home (Round of 32 #3),TBD Away (Round of 32 #3),,,À jouer,
+2026-06-30,03:00,,TBD Home (Round of 32 #4),TBD Away (Round of 32 #4),,,À jouer,
+2026-06-30,19:00,,TBD Home (Round of 32 #5),TBD Away (Round of 32 #5),,,À jouer,
+2026-06-30,23:00,,TBD Home (Round of 32 #6),TBD Away (Round of 32 #6),,,À jouer,
+2026-07-01,03:00,,TBD Home (Round of 32 #7),TBD Away (Round of 32 #7),,,À jouer,
+2026-07-01,18:00,,TBD Home (Round of 32 #8),TBD Away (Round of 32 #8),,,À jouer,
+2026-07-01,22:00,,TBD Home (Round of 32 #9),TBD Away (Round of 32 #9),,,À jouer,
+2026-07-02,02:00,,TBD Home (Round of 32 #10),TBD Away (Round of 32 #10),,,À jouer,
+2026-07-02,21:00,,TBD Home (Round of 32 #11),TBD Away (Round of 32 #11),,,À jouer,
+2026-07-03,01:00,,TBD Home (Round of 32 #12),TBD Away (Round of 32 #12),,,À jouer,
+2026-07-03,05:00,,TBD Home (Round of 32 #13),TBD Away (Round of 32 #13),,,À jouer,
+2026-07-03,20:00,,TBD Home (Round of 32 #14),TBD Away (Round of 32 #14),,,À jouer,
+2026-07-04,00:00,,TBD Home (Round of 32 #15),TBD Away (Round of 32 #15),,,À jouer,
+2026-07-04,03:30,,TBD Home (Round of 32 #16),TBD Away (Round of 32 #16),,,À jouer,
+2026-07-04,19:00,,TBD Home (Round of 16 #1),TBD Away (Round of 16 #1),,,À jouer,
+2026-07-04,23:00,,TBD Home (Round of 16 #2),TBD Away (Round of 16 #2),,,À jouer,
+2026-07-05,22:00,,TBD Home (Round of 16 #3),TBD Away (Round of 16 #3),,,À jouer,
+2026-07-06,02:00,,TBD Home (Round of 16 #4),TBD Away (Round of 16 #4),,,À jouer,
+2026-07-06,21:00,,TBD Home (Round of 16 #5),TBD Away (Round of 16 #5),,,À jouer,
+2026-07-07,02:00,,TBD Home (Round of 16 #6),TBD Away (Round of 16 #6),,,À jouer,
+2026-07-07,18:00,,TBD Home (Round of 16 #7),TBD Away (Round of 16 #7),,,À jouer,
+2026-07-07,22:00,,TBD Home (Round of 16 #8),TBD Away (Round of 16 #8),,,À jouer,
+2026-07-09,22:00,,TBD Home (Quarter-finals #1),TBD Away (Quarter-finals #1),,,À jouer,
+2026-07-10,21:00,,TBD Home (Quarter-finals #2),TBD Away (Quarter-finals #2),,,À jouer,
+2026-07-11,23:00,,TBD Home (Quarter-finals #3),TBD Away (Quarter-finals #3),,,À jouer,
+2026-07-12,03:00,,TBD Home (Quarter-finals #4),TBD Away (Quarter-finals #4),,,À jouer,
+2026-07-14,21:00,,TBD Home (Semi-finals #1),TBD Away (Semi-finals #1),,,À jouer,
+2026-07-15,21:00,,TBD Home (Semi-finals #2),TBD Away (Semi-finals #2),,,À jouer,
+2026-07-18,23:00,,TBD Home (3rd Place Final #1),TBD Away (3rd Place Final #1),,,À jouer,
+2026-07-19,21:00,,TBD Home (Final #1),TBD Away (Final #1),,,À jouer,

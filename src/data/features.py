@@ -4,7 +4,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-_KNOCKOUT_STAGES = {"round_of_16", "quarter_final", "semi_final", "final", "third_place"}
+_KNOCKOUT_STAGES = {"round_of_32", "round_of_16", "quarter_final", "semi_final", "final", "third_place"}
 _DEFAULT_ELO = 1850.0
 
 
