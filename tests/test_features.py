@@ -117,3 +117,45 @@ def test_xgboost_feature_importance():
     assert "feature" in fi.columns
     assert "importance" in fi.columns
     assert len(fi) == 12
+
+
+from src.models.ensemble import EnsemblePredictor, PredictionResult
+from src.models.dixon_coles import DixonColesModel
+from src.models.xgboost_classifier import XGBoostOutcomeClassifier
+from src.data.features import build_match_features
+from src.data.loader import load_historical_matches, load_elo_ratings
+
+
+def test_ensemble_predict_returns_prediction_result():
+    df = load_historical_matches()
+    elo = load_elo_ratings()
+    dc = DixonColesModel()
+    dc.fit(df)
+
+    feature_rows = []
+    labels = []
+    for _, row in df.iterrows():
+        feats = build_match_features(row["home_team"], row["away_team"], elo, df, stage=row["stage"])
+        feature_rows.append(feats)
+        if row["home_goals"] > row["away_goals"]:
+            labels.append(2)
+        elif row["home_goals"] == row["away_goals"]:
+            labels.append(1)
+        else:
+            labels.append(0)
+
+    X = pd.DataFrame(feature_rows)
+    y = pd.Series(labels)
+    xgb = XGBoostOutcomeClassifier()
+    xgb.fit(X, y)
+
+    ensemble = EnsemblePredictor(dc_model=dc, xgb_model=xgb)
+    result = ensemble.predict("France", "Brazil", context={"stage": "semi_final"})
+
+    assert isinstance(result, PredictionResult)
+    assert result.home_team == "France"
+    assert result.away_team == "Brazil"
+    assert result.predicted_winner in ("home", "draw", "away")
+    assert 0.0 <= result.confidence <= 1.0
+    assert len(result.top_scores) == 5
+    assert isinstance(result.model_agreement, bool)
