@@ -105,12 +105,13 @@ def cmd_predict(args: argparse.Namespace) -> None:
 def cmd_backtest(args: argparse.Namespace) -> None:
     """Run backtesting and display metrics."""
     import pandas as pd
-    from src.data.loader import load_historical_matches, load_elo_ratings
+    from src.data.loader import load_historical_matches, load_elo_ratings, load_elo_trends
     from src.data.features import build_match_features
     from src.models.dixon_coles import DixonColesModel
     from src.models.xgboost_classifier import XGBoostOutcomeClassifier
     from src.models.ensemble import EnsemblePredictor
     from src.evaluation.backtesting import run_backtest
+    from src.utils.wandb_logger import wandb_init, wandb_log, wandb_log_table, wandb_finish
 
     tournament = args.tournament
 
@@ -123,13 +124,24 @@ def cmd_backtest(args: argparse.Namespace) -> None:
         console.print(f"[red]No data found for tournament: {tournament}[/red]")
         sys.exit(1)
 
-    # ELO computed from matches BEFORE the target tournament (no leakage)
+    # ELO + trends computed from matches BEFORE the target tournament (no leakage)
     elo = load_elo_ratings(as_of_tournament=tournament)
+    elo_trends = load_elo_trends(as_of_tournament=tournament)
 
     # Train on data excluding the target tournament
     train_df = all_df[~all_df["tournament"].str.contains(tournament, na=False)]
     if train_df.empty:
         train_df = all_df
+
+    wandb_init(
+        config={
+            "tournament": tournament,
+            "n_train_matches": len(train_df),
+            "n_test_matches": len(target_df),
+        },
+        job_type="backtest",
+        tags=["backtest", tournament],
+    )
 
     console.print("  Training models on held-out data...")
     dc_model = DixonColesModel()
@@ -137,17 +149,32 @@ def cmd_backtest(args: argparse.Namespace) -> None:
 
     rows, labels = [], []
     for _, row in train_df.iterrows():
-        feats = build_match_features(row["home_team"], row["away_team"], elo, all_df, stage=row["stage"])
+        feats = build_match_features(
+            row["home_team"], row["away_team"], elo, train_df,
+            stage=row["stage"], elo_trends=elo_trends,
+        )
         rows.append(feats)
         labels.append(2 if row["home_goals"] > row["away_goals"] else (1 if row["home_goals"] == row["away_goals"] else 0))
 
     xgb_model = XGBoostOutcomeClassifier()
     xgb_model.fit(pd.DataFrame(rows), pd.Series(labels))
 
-    ensemble = EnsemblePredictor(dc_model=dc_model, xgb_model=xgb_model)
+    ensemble = EnsemblePredictor(
+        dc_model=dc_model, xgb_model=xgb_model,
+        elo_trends=elo_trends, historical_df=train_df,
+    )
 
     console.print(f"  Predicting {len(target_df)} matches...")
     metrics = run_backtest(ensemble, target_df)
+
+    wandb_log({
+        f"backtest/{tournament}/outcome_accuracy":    metrics["outcome_accuracy"],
+        f"backtest/{tournament}/exact_score_accuracy": metrics["exact_score_accuracy"],
+        f"backtest/{tournament}/top3_score_accuracy":  metrics["top3_score_accuracy"],
+        f"backtest/{tournament}/brier_score":          metrics["brier_score"],
+        f"backtest/{tournament}/log_loss":             metrics["log_loss"],
+    })
+    wandb_finish()
 
     table = Table(title=f"Backtest Results — {tournament}", border_style="cyan")
     table.add_column("Metric", style="bold")
