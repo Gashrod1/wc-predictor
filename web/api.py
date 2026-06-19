@@ -19,6 +19,7 @@ from src.models.dixon_coles import DixonColesModel
 from src.models.xgboost_classifier import XGBoostOutcomeClassifier
 from src.models.ensemble import EnsemblePredictor
 from src.prediction.predictor import load_or_train_predictor
+from src.data.wc2026_sync import sync_wc2026_results, get_sync_status
 from web.fixtures import load_fixtures
 from web.schemas import (
     BacktestDetails,
@@ -178,9 +179,34 @@ def get_h2h(home: str, away: str) -> H2HResponse:
     )
 
 
+@app.get("/api/sync", response_model=dict)
+def post_sync() -> dict:
+    """Force-refresh WC2026 results from ESPN (bypasses the 30-min cache)."""
+    added = sync_wc2026_results(force=True)
+    status = get_sync_status()
+    # Invalidate backtest cache so WC2026 metrics get recomputed
+    if added > 0:
+        cache: dict = _state["backtest_cache"]  # type: ignore[assignment]
+        cache.pop("WC2026", None)
+        cache.pop("WC2026:details", None)
+    return {**status, "new_matches_added": added}
+
+
 @app.get("/api/fixtures", response_model=list[FixtureItem])
 def get_fixtures() -> list[FixtureItem]:
-    """Return the WC2026 fixtures with prediction and result for played matches."""
+    """Return the WC2026 fixtures with prediction and result for played matches.
+
+    Automatically syncs the latest results from ESPN before returning
+    (30-min TTL cache — transparent to the caller).
+    """
+    # Sync fresh results; cache TTL prevents too-frequent requests
+    added = sync_wc2026_results()
+    if added > 0:
+        # New results found — invalidate the WC2026 backtest cache
+        cache: dict = _state["backtest_cache"]  # type: ignore[assignment]
+        cache.pop("WC2026", None)
+        cache.pop("WC2026:details", None)
+
     predictor: EnsemblePredictor = _state["predictor"]  # type: ignore[assignment]
     result = []
     for f in load_fixtures():
