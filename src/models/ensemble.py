@@ -81,17 +81,23 @@ class EnsemblePredictor:
         chemistry_analyzer: Any = None,
         elo_trends: dict[str, float] | None = None,
         historical_df: pd.DataFrame | None = None,
+        elo_ratings: dict[str, float] | None = None,
+        use_live_form: bool = True,
     ) -> None:
         self.dc_model = dc_model
         self.xgb_model = xgb_model
         self.dc_weight = dc_weight
         self.xgb_weight = xgb_weight
-        self._elo_ratings = load_elo_ratings()
+        # elo_ratings: caller can provide pre-computed ratings (e.g. backtest
+        # with as_of_tournament filter). If None, load from all available data.
+        self._elo_ratings = elo_ratings if elo_ratings is not None else load_elo_ratings()
         self._historical_df = historical_df if historical_df is not None else load_historical_matches()
         self._weight_model: Any = None  # set by fit_weights()
         self._squad_loader: Any = squad_loader
         self._chemistry_analyzer: Any = chemistry_analyzer
         self._elo_trends: dict[str, float] | None = elo_trends
+        # use_live_form=False during backtesting to prevent future data leakage
+        self._use_live_form: bool = use_live_form
 
     def fit_weights(
         self,
@@ -273,11 +279,14 @@ class EnsemblePredictor:
         # (except USA/Canada/Mexico as hosts — set neutral=False for those games)
         neutral = bool(ctx.get("neutral", True))
 
-        # Enrich historical_df with fresh form data from API (if key configured).
-        # This updates home/away form features with real recent matches rather
-        # than just WC-only historical averages. Cache TTL = 24h → ≤2 API calls
-        # per team pair per day.
-        enriched_df = self._enrich_with_live_form(home_team, away_team)
+        # Enrich historical_df with fresh form data from API when live mode is on.
+        # Disabled during backtesting (use_live_form=False) to prevent future-data
+        # leakage: API would return WC2026 match results as "recent form" when
+        # predicting WC2026 matches, giving the model knowledge it shouldn't have.
+        if self._use_live_form:
+            enriched_df = self._enrich_with_live_form(home_team, away_team)
+        else:
+            enriched_df = self._historical_df
 
         dc_ab, xgb_ab, blend_ab, top_scores = self._predict_directed(
             home_team, away_team, stage, neutral, hist_df=enriched_df

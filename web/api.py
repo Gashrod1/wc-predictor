@@ -268,7 +268,13 @@ def get_backtest(tournament: str) -> BacktestMetrics:
     xgb_model = XGBoostOutcomeClassifier()
     xgb_model.fit(pd.DataFrame(rows), pd.Series(labels))
 
-    ensemble = EnsemblePredictor(dc_model=dc_model, xgb_model=xgb_model, historical_df=train_df)
+    ensemble = EnsemblePredictor(
+        dc_model=dc_model,
+        xgb_model=xgb_model,
+        elo_ratings=elo,        # leak-free ELO (as_of tournament)
+        historical_df=train_df,
+        use_live_form=False,    # no future API data during backtest
+    )
     metrics = run_backtest(ensemble, target_df)
 
     result = BacktestMetrics(**metrics)
@@ -313,7 +319,13 @@ def get_backtest_details(tournament: str) -> BacktestDetails:
     xgb_model = XGBoostOutcomeClassifier()
     xgb_model.fit(pd.DataFrame(rows), pd.Series(labels))
 
-    ensemble = EnsemblePredictor(dc_model=dc_model, xgb_model=xgb_model, historical_df=train_df)
+    ensemble = EnsemblePredictor(
+        dc_model=dc_model,
+        xgb_model=xgb_model,
+        elo_ratings=elo,        # leak-free ELO (as_of tournament)
+        historical_df=train_df,
+        use_live_form=False,    # no future API data during backtest
+    )
     match_rows = run_backtest_details(ensemble, target_df)
 
     details = BacktestDetails(

@@ -160,8 +160,12 @@ def cmd_backtest(args: argparse.Namespace) -> None:
     xgb_model.fit(pd.DataFrame(rows), pd.Series(labels))
 
     ensemble = EnsemblePredictor(
-        dc_model=dc_model, xgb_model=xgb_model,
-        elo_trends=elo_trends, historical_df=train_df,
+        dc_model=dc_model,
+        xgb_model=xgb_model,
+        elo_ratings=elo,          # leak-free: computed as_of tournament
+        elo_trends=elo_trends,    # leak-free: computed as_of tournament
+        historical_df=train_df,   # no target-tournament matches
+        use_live_form=False,      # no future data from API
     )
 
     console.print(f"  Predicting {len(target_df)} matches...")
