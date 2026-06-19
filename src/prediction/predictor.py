@@ -86,12 +86,14 @@ def _train_models() -> tuple[DixonColesModel, XGBoostOutcomeClassifier]:
     feature_rows = []
     labels = []
     for _, row in all_df.iterrows():
+        neutral_venue = bool(row["is_neutral_venue"]) if "is_neutral_venue" in row.index else True
         feats = build_match_features(
             row["home_team"], row["away_team"], elo, all_df,
             stage=str(row.get("stage", "group")),
             elo_trends=elo_trends,
             squad_loader=None,
             chemistry_analyzer=None,
+            neutral_venue=neutral_venue,
         )
         feature_rows.append(feats)
         if row["home_goals"] > row["away_goals"]:

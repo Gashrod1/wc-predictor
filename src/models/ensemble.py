@@ -229,6 +229,7 @@ class EnsemblePredictor:
             squad_loader=self._squad_loader,
             chemistry_analyzer=self._chemistry_analyzer,
             elo_trends=self._elo_trends,
+            neutral_venue=neutral,  # WC prediction always neutral; backtest uses match context
         )
         xgb_probs = self.xgb_model.predict_proba(features)
         blended = self._blend(dc_probs, xgb_probs)

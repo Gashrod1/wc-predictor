@@ -19,6 +19,7 @@ def build_match_features(
     squad_loader: object | None = None,
     chemistry_analyzer: object | None = None,
     elo_trends: dict[str, float] | None = None,
+    neutral_venue: bool = True,
 ) -> dict[str, float]:
     """Build the feature vector for a match prediction.
 
@@ -34,9 +35,12 @@ def build_match_features(
         chemistry_analyzer: Optional ChemistryAnalyzer instance for chemistry features.
         elo_trends: Optional dict mapping team name to ELO trend (change over recent
             days). Defaults to 0.0 per team when not provided.
+        neutral_venue: True for neutral-venue matches (WC, EURO, Copa…). False when the
+            first-listed team genuinely plays at home. This critical feature lets XGBoost
+            distinguish home-advantage matches from neutral-venue matches in training data.
 
     Returns:
-        Dictionary with 15 base feature keys, plus optional squad/chemistry keys.
+        Dictionary with 16 base feature keys, plus optional squad/chemistry keys.
     """
     home_elo = elo_ratings.get(home_team, _DEFAULT_ELO)
     away_elo = elo_ratings.get(away_team, _DEFAULT_ELO)
@@ -58,6 +62,7 @@ def build_match_features(
         "h2h_home_wins": h2h["home_win_pct"],
         "h2h_avg_goals": h2h["avg_goals"],
         "is_knockout": 1 if stage in _KNOCKOUT_STAGES else 0,
+        "is_neutral_venue": 1.0 if neutral_venue else 0.0,
         "elo_trend_home": float(elo_trends.get(home_team, 0.0)) if elo_trends else 0.0,
         "elo_trend_away": float(elo_trends.get(away_team, 0.0)) if elo_trends else 0.0,
         "elo_trend_diff": (

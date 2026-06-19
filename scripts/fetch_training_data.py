@@ -140,8 +140,12 @@ def fetch_competitive_matches(df: pd.DataFrame) -> pd.DataFrame:
     # Default stage: group (qualifying / group stage matches)
     out["stage"] = "group"
 
+    # Keep the neutral venue flag from martj42 (True = both teams on foreign soil)
+    # This is critical for training XGBoost to distinguish home-advantage vs neutral games.
+    out["is_neutral_venue"] = out["neutral"].astype(int)
+
     return out[["date", "home_team", "away_team", "home_goals", "away_goals",
-                "stage", "tournament"]].reset_index(drop=True)
+                "stage", "tournament", "is_neutral_venue"]].reset_index(drop=True)
 
 
 def main() -> None:

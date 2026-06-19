@@ -255,8 +255,10 @@ def get_backtest(tournament: str) -> BacktestMetrics:
     rows: list[dict[str, float]] = []
     labels: list[int] = []
     for _, row in train_df.iterrows():
+        neutral_venue = bool(row["is_neutral_venue"]) if "is_neutral_venue" in row.index else True
         rows.append(
-            build_match_features(row["home_team"], row["away_team"], elo, train_df, stage=row["stage"])
+            build_match_features(row["home_team"], row["away_team"], elo, train_df,
+                                 stage=row["stage"], neutral_venue=neutral_venue)
         )
         if row["home_goals"] > row["away_goals"]:
             labels.append(2)
@@ -306,8 +308,10 @@ def get_backtest_details(tournament: str) -> BacktestDetails:
     rows: list[dict[str, float]] = []
     labels: list[int] = []
     for _, row in train_df.iterrows():
+        neutral_venue = bool(row["is_neutral_venue"]) if "is_neutral_venue" in row.index else True
         rows.append(
-            build_match_features(row["home_team"], row["away_team"], elo, train_df, stage=row["stage"])
+            build_match_features(row["home_team"], row["away_team"], elo, train_df,
+                                 stage=row["stage"], neutral_venue=neutral_venue)
         )
         if row["home_goals"] > row["away_goals"]:
             labels.append(2)

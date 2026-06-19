@@ -241,7 +241,7 @@ def test_build_match_features_without_squad_loader_still_works():
     df = load_historical_matches()
     elo = load_elo_ratings()
     features = build_match_features("France", "Brazil", elo, df)
-    assert len(features) == 15
+    assert len(features) == 16
 
 
 def test_squad_features_failure_does_not_crash():

@@ -11,6 +11,9 @@ _FEATURE_COLS = [
     "home_form_goals_scored", "home_form_goals_conceded", "home_form_xg",
     "away_form_goals_scored", "away_form_goals_conceded", "away_form_xg",
     "h2h_home_wins", "h2h_avg_goals", "is_knockout",
+    # Venue context — critical for distinguishing home-advantage vs neutral games
+    # (1 = neutral/WC, 0 = real home match with crowd/travel advantage)
+    "is_neutral_venue",
     # Squad features (optional — 0.0 when squad data unavailable)
     "squad_avg_club_elo", "squad_pct_top5_league", "squad_avg_age",
     "squad_market_value_m", "squad_n_in_form", "squad_elo_diff",

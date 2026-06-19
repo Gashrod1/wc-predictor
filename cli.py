@@ -149,9 +149,10 @@ def cmd_backtest(args: argparse.Namespace) -> None:
 
     rows, labels = [], []
     for _, row in train_df.iterrows():
+        neutral_venue = bool(row["is_neutral_venue"]) if "is_neutral_venue" in row.index else True
         feats = build_match_features(
             row["home_team"], row["away_team"], elo, train_df,
-            stage=row["stage"], elo_trends=elo_trends,
+            stage=row["stage"], elo_trends=elo_trends, neutral_venue=neutral_venue,
         )
         rows.append(feats)
         labels.append(2 if row["home_goals"] > row["away_goals"] else (1 if row["home_goals"] == row["away_goals"] else 0))
